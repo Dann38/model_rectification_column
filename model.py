@@ -2,17 +2,17 @@ import numpy as np
 from scipy.integrate import quad
 
 # Параметры =====================================
-c1 = 36  #м/ч L(s, t)/Hx(s, t)
-c2 = 520 #м/ч V(s, t)/Hy(s, t)
+c1 = 36  # м/ч L(s, t)/Hx(s, t)
+c2 = 520  # м/ч V(s, t)/Hy(s, t)
 k = 0.395
 s0 = 0
 s1 = 20
 s_in = 0.5
 t0 = 0
 t1 = 20
-Hxk0 = 30 #кмоль Hxk(t) = Hxk0
-Hxd0 = 50 #кмоль Hxd(t) = Hxd0
-tilde_p =  lambda s, t: 0.02
+Hxk0 = 30  # кмоль Hxk(t) = Hxk0
+Hxd0 = 50  # кмоль Hxd(t) = Hxd0
+tilde_p = lambda s, t: 0.02
 Fx = lambda t: 86
 a = 738.91
 b = 20
