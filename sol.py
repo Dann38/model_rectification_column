@@ -1,11 +1,12 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import scipy.integrate as integrate
 
-def sol(s, c, fun0, B, G, m, Time_end):
+def sol(s, c, fun0, B, F, G, m, Time_end):
     global h, w, ds, S, T, X, Y, \
            B11, B12, B21, B22, \
            c1, c2, fun_x0, fun_y0, \
            G11, G12, G21, G22, \
+           F1, F2, \
            s0, s_end, \
            Y_left, X_left, T_left, \
            Y_right, X_right, T_right, \
@@ -24,6 +25,9 @@ def sol(s, c, fun0, B, G, m, Time_end):
     B12 = B[0][1]
     B21 = B[1][0]
     B22 = B[1][1]
+
+    F1 = F[0]
+    F2 = F[1]
 
     G11 = G[0][0]
     G12 = G[0][1]
@@ -66,13 +70,13 @@ def sol(s, c, fun0, B, G, m, Time_end):
     S[:, :] = None
     T[:, :] = None
 
-    Y_left[:]= None
-    X_left[:]= None
-    T_left[:]= None
+    Y_left[:] = None
+    X_left[:] = None
+    T_left[:] = None
 
-    Y_right[:]= None
-    X_right[:]= None
-    T_right[:]= None
+    Y_right[:] = None
+    X_right[:] = None
+    T_right[:] = None
     # Конец обнуления массивов ------------------------------------------------------
     
     # Начальные условия -------------------------------------------------------------
@@ -113,8 +117,8 @@ def sol(s, c, fun0, B, G, m, Time_end):
                     x[:] = [X[l-1, i-1], X[l-1, i]]
                     y[:] = [Y[l-1, i-1], Y[l-1, i]]
 
-                    X[l, i], Y[l, i] = center_sol(i, l, t, s, x, y) 
-                    print_rez(S[l,i], T[l,i], [X[l,i], Y[l, i]])
+                    X[l, i], Y[l, i] = center_sol(i, l, t, s, x, y)
+                    print_rez(S[l, i], T[l, i], [X[l, i], Y[l, i]])
             elif i == 0:
                 if not was_shift_right(l): # ТОЧНО not, проверил
                     s[:] = [s0        , S[l-1, i]]
@@ -130,7 +134,7 @@ def sol(s, c, fun0, B, G, m, Time_end):
                     x[:] = [X[l-1, i], X[l-1, i+1]]
                     y[:] = [Y[l-1, i], Y[l-1, i+1]]
 
-                    X[l, i], Y[l, i] = center_sol(i, l, t, s, x, y) 
+                    X[l, i], Y[l, i] = center_sol(i, l, t, s, x, y)
             else:
                 if was_shift_right(l): # ТОЧНО НЕТ not, проверил
                     s[:] = [S[l-1, i], S[l-1, i+1]]
@@ -145,24 +149,26 @@ def sol(s, c, fun0, B, G, m, Time_end):
 
                 X[l, i], Y[l, i] = center_sol(i, l, t, s, x, y)
     rez = {
-        "s": S[level,:],
+        "s": S[level, :],
         "t1": T[level, 0],
         "x(t1)": X[level, :],
         "y(t1)": Y[level, :]
     }
     return rez
-    
-    
+
+
 ### Переход из моих координат в координаты задачи ---------------------------------
 def get_st_point_level_i(level, i):
     t_rez = h*level
-    rs = w*level%ds
+    rs = w*level % ds
     s_rez = ds*i + rs
-    return (s_rez, t_rez)
+    return s_rez, t_rez
+
 
 ### Сдвиг (решения проблемы моих координат) ---------------------------------------
 def was_shift_right(l):
     return get_st_point_level_i(l, 0)[0] > get_st_point_level_i(l-1, 0)[0]
+
 
 ### Красивый вывод для решателей --------------------------------------------------
 def print_input(s, t, x, y, l, i):
@@ -185,16 +191,17 @@ def print_rez(si, ti, rez):
 #     print(f'^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
     
 ### Общий случай решения и частный ------------------------------------------------
-    
-def sol_xy_(dt_array, X, Y, M1, M2):
+
+
+def sol_xy_(dt_array, X, Y, M1, M2, f):
     dt_l, dt_r = dt_array
     x_l, x_r = X
     y_l, y_r = Y
     b = np.zeros(2)
-    b[0] = (M1[0,0]*x_r+M1[0,1]*y_r)*dt_r/2+x_r
-    b[1] = (M1[1,0]*x_l+M1[1,1]*y_l)*dt_l/2+y_l
+    b[0] = (M1[0, 0]*x_r+M1[0, 1]*y_r)*dt_r/2+x_r + f[0]
+    b[1] = (M1[1, 0]*x_l+M1[1, 1]*y_l)*dt_l/2+y_l + f[1]
     
-    A = np.zeros((2,2))
+    A = np.zeros((2, 2))
     A[0, 0] = 1 - M2[0, 0]*dt_r/2
     A[0, 1] = 0 - M2[0, 1]*dt_r/2
     A[1, 0] = 0 - M2[1, 0]*dt_l/2
@@ -202,6 +209,9 @@ def sol_xy_(dt_array, X, Y, M1, M2):
     
     rez = np.linalg.solve(A, b)
     return rez 
+
+def outrage(f, t, s, h_):
+    return h_/2*(f(s[1], t[1])+f(s[0], t[0]))
 
 def center_sol(i, l, t, s, x, y):
     print_input(s, t, x, y, l, i)   
@@ -212,8 +222,9 @@ def center_sol(i, l, t, s, x, y):
     hl = ti-t[0]
     hr = ti-t[1]
     
-    M1 = np.zeros((2,2))
-    M2 = np.zeros((2,2))
+    M1 = np.zeros((2, 2))
+    M2 = np.zeros((2, 2))
+    print(s[1], t[1])
     M1[0, 0] = B11(s[1], t[1])
     M1[0, 1] = B12(s[1], t[1])
     M1[1, 0] = B21(s[0], t[0])
@@ -222,10 +233,12 @@ def center_sol(i, l, t, s, x, y):
     M2[0, 1] = B12(si, ti)
     M2[1, 0] = B21(si, ti)
     M2[1, 1] = B22(si, ti)
-    rez = sol_xy_([hl, hr], x, y, M1, M2)
+    f = np.array([outrage(F1, t, s, hr), outrage(F2, t, s, hl)])
+    rez = sol_xy_([hl, hr], x, y, M1, M2, f)
     
     print_rez(si, ti, rez)
     return rez
+
 
 def right_sol(i, l, t, s, x, y):
     """
@@ -250,8 +263,8 @@ def right_sol(i, l, t, s, x, y):
 #         if abs(t[0]-t[1]) < 0.01*h:
 #             cf[0] = 1.
 #         else:
-        cf[0]  = (cf[1] - t[1])/(t[0]-t[1])
-        cf[1]  = 1.-cf[0] 
+        cf[0] = (cf[1] - t[1])/(t[0]-t[1])
+        cf[1] = 1.-cf[0]
         
         tl = cf[1]*t[1] + cf[0]*t[0]
         sl = cf[1]*s[1] + cf[0]*s[0]
@@ -268,7 +281,8 @@ def right_sol(i, l, t, s, x, y):
         M2[0, 1] = G12(T_right[kr+1])
         M2[1, 0] = B21(s_end, T_right[kr+1])
         M2[1, 1] = B22(s_end, T_right[kr+1])
-        X_right[kr+1], Y_right[kr+1] = sol_xy_([T_right[kr+1]-tl, h_r],  [xl, x[1]], [yl, y[1]], M1, M2)
+        f = np.array([outrage(F1, t, s, h_r), 0])
+        X_right[kr+1], Y_right[kr+1] = sol_xy_([T_right[kr+1]-tl, h_r],  [xl, x[1]], [yl, y[1]], M1, M2, f)
     
         t[1] = T_right[kr+1]
         s[1] = s_end 
@@ -277,7 +291,9 @@ def right_sol(i, l, t, s, x, y):
         print_input(s, t, x, y, l, i) 
         rez = center_sol(i, l, t, s, x, y)
     print_rez(S[l, i], T[l, i], rez)
+
     return rez
+
 
 def left_sol(i, l, t, s, x, y):
     print_input(s, t, x, y, l, i)   
@@ -301,18 +317,18 @@ def left_sol(i, l, t, s, x, y):
     xr = cf[1]*x[0] + cf[0]*x[1]
     yr = cf[1]*y[0] + cf[0]*y[1]
      
-    M1 = np.zeros((2,2))
-    M2 = np.zeros((2,2))
-    M1[0, 0] = B11(sr,tr)
-    M1[0, 1] = B12(sr,tr)
+    M1 = np.zeros((2, 2))
+    M2 = np.zeros((2, 2))
+    M1[0, 0] = B11(sr, tr)
+    M1[0, 1] = B12(sr, tr)
     M1[1, 0] = G21(T_left[kl])      
     M1[1, 1] = G22(T_left[kl])      
     M2[0, 0] = B11(s0, T_left[kl+1])
     M2[0, 1] = B12(s0, T_left[kl+1])
     M2[1, 0] = G21(T_left[kl+1])     
-    M2[1, 1] = G22(T_left[kl+1])     
-    
-    X_left[kl+1], Y_left[kl+1] = sol_xy_([h_l, T_left[kl+1]-tr], [x[0], xr], [y[0], yr], M1, M2)
+    M2[1, 1] = G22(T_left[kl+1])
+    f = np.array([0, outrage(F2, t, s, h_l)])
+    X_left[kl+1], Y_left[kl+1] = sol_xy_([h_l, T_left[kl+1]-tr], [x[0], xr], [y[0], yr], M1, M2, f)
     t[0] = T_left[kl+1]
     s[0] = s0 
     x[0] = X_left[kl+1] 
