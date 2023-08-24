@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate as integrate
 
+
 def sol(s, c, fun0, B, F, G, m, Time_end):
     global h, w, ds, S, T, X, Y, \
            B11, B12, B21, B22, \
@@ -152,7 +153,13 @@ def sol(s, c, fun0, B, F, G, m, Time_end):
         "s": S[level, :],
         "t1": T[level, 0],
         "x(t1)": X[level, :],
-        "y(t1)": Y[level, :]
+        "y(t1)": Y[level, :],
+        "x(s0, t)": X_left,
+        "y(s0, t)": Y_left,
+        "t(s0)": T_left,
+        "x(s1, t)": X_right,
+        "y(s1, t)": Y_right,
+        "t(s1)": T_right,
     }
     return rez
 
@@ -180,7 +187,8 @@ def print_input(s, t, x, y, l, i):
 #     print(f't:\t {t[0]:.4f}\t {t[1]:.4f}')
 #     print(f'x:\t {x[0]:.4f}\t {x[1]:.4f}')
 #     print(f'y:\t {y[0]:.4f}\t {y[1]:.4f}\n') 
-    
+
+
 def print_rez(si, ti, rez):
     pass
 #     print(f'R E Z ---------------')
@@ -197,9 +205,10 @@ def sol_xy_(dt_array, X, Y, M1, M2, f):
     dt_l, dt_r = dt_array
     x_l, x_r = X
     y_l, y_r = Y
+    f_l, f_r = f
     b = np.zeros(2)
-    b[0] = (M1[0, 0]*x_r+M1[0, 1]*y_r)*dt_r/2+x_r + f[0]
-    b[1] = (M1[1, 0]*x_l+M1[1, 1]*y_l)*dt_l/2+y_l + f[1]
+    b[0] = (M1[0, 0]*x_r+M1[0, 1]*y_r + f_r)*dt_r/2+x_r
+    b[1] = (M1[1, 0]*x_l+M1[1, 1]*y_l + f_l)*dt_l/2+y_l
     
     A = np.zeros((2, 2))
     A[0, 0] = 1 - M2[0, 0]*dt_r/2
@@ -208,10 +217,8 @@ def sol_xy_(dt_array, X, Y, M1, M2, f):
     A[1, 1] = 1 - M2[1, 1]*dt_l/2
     
     rez = np.linalg.solve(A, b)
-    return rez 
+    return rez
 
-def outrage(f, t, s, h_):
-    return h_/2*(f(s[1], t[1])+f(s[0], t[0]))
 
 def center_sol(i, l, t, s, x, y):
     print_input(s, t, x, y, l, i)   
@@ -224,7 +231,6 @@ def center_sol(i, l, t, s, x, y):
     
     M1 = np.zeros((2, 2))
     M2 = np.zeros((2, 2))
-    print(s[1], t[1])
     M1[0, 0] = B11(s[1], t[1])
     M1[0, 1] = B12(s[1], t[1])
     M1[1, 0] = B21(s[0], t[0])
@@ -233,8 +239,9 @@ def center_sol(i, l, t, s, x, y):
     M2[0, 1] = B12(si, ti)
     M2[1, 0] = B21(si, ti)
     M2[1, 1] = B22(si, ti)
-    f = np.array([outrage(F1, t, s, hr), outrage(F2, t, s, hl)])
-    rez = sol_xy_([hl, hr], x, y, M1, M2, f)
+    fr = F1(s[1], t[1]) + F1(si, ti)
+    fl = F2(s[0], t[0]) + F2(si, ti)
+    rez = sol_xy_([hl, hr], x, y, M1, M2, [fl, fr])
     
     print_rez(si, ti, rez)
     return rez
@@ -260,10 +267,13 @@ def right_sol(i, l, t, s, x, y):
         T_right[kr+1] = t[1] + h_r
         cf = np.zeros(2)
         cf[1] = ((s[0]+c1*t[0])-(s[1]-c2*T_right[kr+1]))/(c1+c2) 
-#         if abs(t[0]-t[1]) < 0.01*h:
-#             cf[0] = 1.
-#         else:
-        cf[0] = (cf[1] - t[1])/(t[0]-t[1])
+        if t[0] != t[1]:
+            cf[0] = (cf[1] - t[1]) / (t[0] - t[1])
+            if cf[0] > 1:
+                cf[0] = 1.
+        else:
+            cf[0] = 1.
+
         cf[1] = 1.-cf[0]
         
         tl = cf[1]*t[1] + cf[0]*t[0]
@@ -271,8 +281,8 @@ def right_sol(i, l, t, s, x, y):
         xl = cf[1]*x[1] + cf[0]*x[0]
         yl = cf[1]*y[1] + cf[0]*y[0]
 
-        M1 = np.zeros((2,2))
-        M2 = np.zeros((2,2))
+        M1 = np.zeros((2, 2))
+        M2 = np.zeros((2, 2))
         M1[0, 0] = G11(T_right[kr])
         M1[0, 1] = G12(T_right[kr])
         M1[1, 0] = B21(sl, tl)
@@ -281,8 +291,10 @@ def right_sol(i, l, t, s, x, y):
         M2[0, 1] = G12(T_right[kr+1])
         M2[1, 0] = B21(s_end, T_right[kr+1])
         M2[1, 1] = B22(s_end, T_right[kr+1])
-        f = np.array([outrage(F1, t, s, h_r), 0])
-        X_right[kr+1], Y_right[kr+1] = sol_xy_([T_right[kr+1]-tl, h_r],  [xl, x[1]], [yl, y[1]], M1, M2, f)
+        fr = 0
+        fl = F2(s_end, T_right[kr+1]) + F2(sl, tl)
+        X_right[kr+1], Y_right[kr+1] = sol_xy_([T_right[kr+1]-tl, h_r],
+                                               [xl, x[1]], [yl, y[1]], M1, M2, [fl, fr])
     
         t[1] = T_right[kr+1]
         s[1] = s_end 
@@ -306,10 +318,13 @@ def left_sol(i, l, t, s, x, y):
     cf = np.zeros(2)
     T_left[kl+1] = t[0] + h_l
     cf[1] = ((s[0]+c1*T_left[kl+1])-(s[1]-c2*t[1]))/(c1+c2) 
-#     if abs(t[1]-t[0]) < 0.01*h:
-#         cf[0] = 1.
-#     else:
-    cf[0] = (cf[1]-t[0])/(t[1]-t[0])
+    if t[1] != t[0]:
+        cf[0] = (cf[1]-t[0])/(t[1]-t[0])
+        if cf[0] > 1:
+            cf[0] = 1.
+    else:
+        cf[0] = 1.
+
     cf[1] = 1.-cf[0]
     
     tr = cf[1]*t[0] + cf[0]*t[1]
@@ -327,8 +342,10 @@ def left_sol(i, l, t, s, x, y):
     M2[0, 1] = B12(s0, T_left[kl+1])
     M2[1, 0] = G21(T_left[kl+1])     
     M2[1, 1] = G22(T_left[kl+1])
-    f = np.array([0, outrage(F2, t, s, h_l)])
-    X_left[kl+1], Y_left[kl+1] = sol_xy_([h_l, T_left[kl+1]-tr], [x[0], xr], [y[0], yr], M1, M2, f)
+    fr = F1(s0, T_left[kl + 1]) + F1(sr, tr)
+    fl = 0
+    X_left[kl+1], Y_left[kl+1] = sol_xy_([h_l, T_left[kl+1]-tr],
+                                         [x[0], xr], [y[0], yr], M1, M2, [fl, fr])
     t[0] = T_left[kl+1]
     s[0] = s0 
     x[0] = X_left[kl+1] 

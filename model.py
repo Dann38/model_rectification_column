@@ -36,7 +36,7 @@ t1 = 4
 t0 = 0
 s0 = 0
 s1 = 2
-m = 200
+m = 30
 
 c1 = 1
 c2 = 3
@@ -58,8 +58,6 @@ B = [[A1, B1],
 F = [Fx, Fy]
 
 rez = related_task(s, c, fun0, B, F, G, m, t1, None)
-
-
 
 s = np.linspace(0, 2, 30)
 x = np.exp(s)*(t1-t0)*np.cos(t1-t0)
