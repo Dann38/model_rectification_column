@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 s = [0, 2]
 t = [0, 4]
 c = [1, 3]
-m = 30
+m = 50
 B11 = lambda s, t: 1
 B12 = lambda s, t: - 1/np.exp(s)
 B21 = lambda s, t: np.exp(s)
@@ -34,19 +34,27 @@ fun0 = [x0, y0]
 rez = sol(s, c, fun0, B, F, G, m, t[1])
 
 
-s = np.linspace(0, 2, 30)
+s = np.linspace(0, 2, 29)
 x = s**2+np.cos(t[1])
 y = np.exp(s)*(np.sin(t[1])+2*np.cos(t[1]))
-plt.subplot()
-plt.plot(s, x)
-plt.plot(rez["s"], rez["x(t1)"])
-plt.ylim([-1, 4])
-plt.subplots()
-plt.plot(s, y)
-plt.plot(rez["s"], rez["y(t1)"])
-plt.ylim([-20, 0])
-plt.show()
 
+fig, axs = plt.subplots(nrows= 2 , ncols= 1 )
+axs[0].set_title("Численное решение (узлов по t: 232, узлов по s: 29)")
+axs[0].plot(s, x)
+axs[0].plot(rez["s"], rez["x(t1)"], "o")
+axs[0].grid()
+axs[0].legend(["аналитическое решение", "численное решение"])
+axs[0].set_ylabel("$x(s, t_1)$")
+
+axs[1].plot(s, y)
+axs[1].plot(rez["s"], rez["y(t1)"], "o")
+axs[1].grid()
+axs[1].legend(["аналитическое решение", "численное решение"])
+axs[1].set_ylabel("$y(s, t_1)$")
+axs[1].set_xlabel("$s$")
+plt.show()
+print(f"max x:{np.max(abs(rez['s']**2+np.cos(t[1])-rez['x(t1)']))}")
+print(f"max y:{np.max(abs(np.exp(rez['s'])*(np.sin(t[1])+2*np.cos(t[1]))-rez['y(t1)']))}")
 # t = np.linspace(t[0], t[-1], 60)
 # xl = s[0]**2+np.cos(t)
 # yl = np.exp(s[0])*(np.sin(t)+2*np.cos(t))
