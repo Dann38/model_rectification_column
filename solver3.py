@@ -32,7 +32,8 @@ class Node(ABC):
 
         # return f"(s: {self.s:.2f}, t: {self.t:.2f})"
         return f"(s: {self.s:.2f}, t: {self.t:.2f}) => x: {self.x: .2f}, y: {self.y: .2f} " \
-               f"\t ан.реш x:{x_an(self.s, self.t): .2f}, y:{y_an(self.s, self.t):.2f}" #\
+               f"\t ан.реш x:{x_an(self.s, self.t): .2f}, y:{y_an(self.s, self.t):.2f}" \
+               f"({self.left.s:.2f}, {self.left.t:.2f}), ({self.right.s:.2f}, {self.right.t:.2f})"
                # f"Node left: ({self.left.s: .2f}, {self.left.t: .2f})]"
                # f" [ Node right: ({self.right.s: .2f},{self.right.s: .2f})" \
 
@@ -121,8 +122,9 @@ class Mesh:
         inds = self.start.neighbor_is_left()
         self.left = MeshLeft([self.h_down, self.h_up], self.s0, self.t1)
         self.right = MeshRight([self.h_down, self.h_up], self.s1, self.t1)
-
         self.center = MeshCenter(self.ds, [self.h_down, self.h_up], self.m, inds)
+
+        self.result = None
 
     def create_mesh_s(self):
         ds = (self.s1 - self.s0) / self.m
@@ -130,54 +132,50 @@ class Mesh:
         h_up = ds / self.c1
         return ds, h_down, h_up
 
-    def plot(self):
+    def solve(self):
         start_nodes = self.start.get_nodes()
         print("получение стартовых узлов")
         for node in start_nodes:  # начальные условия
             node.solver()
-            print(node)
-        # print("получение оставшихся узлов")
+        print("получение оставшихся узлов")
         left_nodes = self.left.get_nodes(start_nodes[0])
         right_nodes = self.right.get_nodes(start_nodes[-1])
         center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
-        #
-        # print("решение узлов по уровням")
-        # for i, level_nodes in enumerate(center_nodes[:2]):
-        #     left_nodes[i].solver_s0()
-        #     for nodes in level_nodes:
-        #         nodes.solver_node()
-        #         print(node)
-        #     right_nodes[i].solver_s1()
 
+        print("решение узлов по уровням")
+        for i, level_nodes in enumerate(center_nodes):
+            left_nodes[i].solver()
+            for node in level_nodes:
+                node.solver()
+                print(node)
+            right_nodes[i].solver()
+        self.result = (start_nodes, left_nodes, right_nodes, center_nodes)
 
-
+    def plot_mesh(self):
+        if self.result is None:
+            self.solve()
+        start_nodes, left_nodes, right_nodes, center_nodes = self.result
 
         def plot_node(node):
             plt.scatter(node.s, node.t, color="g")
-            # if node.left.x is None and node.left.y is None:
-            #     plt.scatter(node.s, node.t, color="r")
-            # elif node.left.x is None:
-            #     plt.scatter(node.s, node.t, color="b")
-            # elif node.left.y is None:
-            #     plt.scatter(node.s, node.t, color="orange")
-            # else:
-            #     plt.scatter(node.s, node.t, color="g")
+            if node.left.x is None and node.left.y is None:
+                plt.scatter(node.s, node.t, color="r")
+            elif node.left.x is None:
+                plt.scatter(node.s, node.t, color="b")
+            elif node.left.y is None:
+                plt.scatter(node.s, node.t, color="orange")
+            else:
+                plt.scatter(node.s, node.t, color="g")
+
         for node in start_nodes:
-
             plot_node(node)
-
-            # l, r = node.get_parents_node([self.c1, self.c2], self.t0, [self.h_down, self.h_up])
-            # plt.scatter(l.s, l.t, color="r", marker=".")
-            # plt.scatter(r.s, r.t, color="r", marker=".")
-
-        # for node in left_nodes:
-        #     plot_node(node)
-        # for node in right_nodes:
-        #     plot_node(node)
-        #
-        # for level in center_nodes:
-        #     for node in level:
-        #         plot_node(node)
+        for node in left_nodes:
+            plot_node(node)
+        for node in right_nodes:
+            plot_node(node)
+        for level in center_nodes:
+            for node in level:
+                plot_node(node)
         plt.xlim([self.s0, self.s1])
         plt.ylim([self.t0, self.t1])
         plt.show()
@@ -260,15 +258,15 @@ class MeshCenter:
                 if ind == 1.:
                     nodes[level][i+1].left = nodes[level][i]
                     if level == 0:
-                        nodes[level][i].right = start_nodes[i]
+                        nodes[level][i].right = start_nodes[i+1]
                     else:
-                        nodes[level][i].right = nodes[level-1][i]
+                        nodes[level][i].right = nodes[level-1][i+1]
                 else:
                     nodes[level][i].right = nodes[level][i+1]
                     if level == 0:
                         nodes[level][i + 1].left = start_nodes[i]
                     else:
-                        nodes[level][i+1].left = nodes[level-1][i]
+                        nodes[level][i + 1].left = nodes[level-1][i]
 
         return nodes
 
@@ -281,7 +279,7 @@ class MeshLeft:
 
     def get_nodes(self, start_node):
         dt = self.h[0]+self.h[1]
-        t = np.arange(start_node.t+dt, self.t1, dt)
+        t = np.arange(start_node.t+dt, self.t1+dt, dt)
 
         start_left_node = NodeLeft(start_node.s, start_node.t, right=start_node.right)
         start_left_node.x = start_node.x
@@ -303,7 +301,7 @@ class MeshRight:
 
     def get_nodes(self, start_node):
         dt = self.h[0] + self.h[1]
-        t = np.arange(start_node.t+dt, self.t1, dt)
+        t = np.arange(start_node.t+dt, self.t1+dt, dt)
 
         start_right_node = NodeRight(start_node.s, start_node.t, left=start_node.left)
         start_right_node.x = start_node.x
@@ -319,4 +317,4 @@ class MeshRight:
 
 if __name__ == '__main__':
     mesh = Mesh()
-    mesh.plot()
+    mesh.solve()
