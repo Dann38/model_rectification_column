@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 24
+COUNT_NODE = 100
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -145,6 +145,7 @@ class NodeFinish(Node):
     # def get_xy_in_t1(self):
     #     self.
 
+
 class NoneCenter(Node):
     def solver(self):
         self.solver_node()
@@ -209,19 +210,8 @@ class Mesh:
         self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2)
 
     def plot_mesh(self):
-        # if self.result is None:
-        #     self.solve()
         start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
 
-        fig, ax = plt.subplots()
-
-
-        def onclick(event):
-            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-                  ('double' if event.dblclick else 'single', event.button,
-                   event.x, event.y, event.xdata, event.ydata))
-
-        cid = fig.canvas.mpl_connect('button_press_event', onclick)
         def plot_node(node, c="g"):
             # plt.scatter(node.s, node.t, color=c)
             s = f"{node.t:.2f}"
@@ -253,14 +243,46 @@ class Mesh:
         for node in finish_nodes2:
             plot_node(node)
 
-        # x = [node.x for node in left_nodes]
-        # y = [node.y for node in left_nodes]
-        # t = [node.t for node in left_nodes]
-        # plt.plot(t, x)
-        # plt.plot(np.array(t), x_an(S0, np.array(t)))
-
         plt.xlim([self.s0, self.s1])
         plt.ylim([self.t0, self.t1+0.5])
+        plt.show()
+
+    def plot_border_right(self):
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
+        fig, axs = plt.subplots(nrows=2, ncols=1)
+        x = [node.x for node in right_nodes]
+        y = [node.y for node in right_nodes]
+        t = [node.t for node in right_nodes]
+        axs[0].plot(t, x, "*")
+
+        axs[0].plot(np.array(t), x_an(S1, np.array(t)))
+        axs[1].plot(t, y, "*")
+        axs[1].plot(np.array(t), y_an(S1, np.array(t)))
+
+        plt.show()
+
+    def plot_final(self):
+        s, x, y = mesh.get_XY_t1()
+        x_an_ = [x_an(si, T1) for si in s]
+        y_an_ = [y_an(si, T1) for si in s]
+
+        fig, axs = plt.subplots(nrows=2, ncols=1)
+        axs[0].set_title(f"Численное решение (узлов по s: {COUNT_NODE})")
+        axs[0].plot(s, x_an_)
+        axs[0].plot(s, x, "o")
+        axs[0].grid()
+        axs[0].legend(["аналитическое решение", "численное решение"])
+        axs[0].set_ylabel("$x(s, t_1)$")
+
+        axs[1].plot(s, y_an_)
+        axs[1].plot(s, y, "o")
+        axs[1].grid()
+        axs[1].legend(["аналитическое решение", "численное решение"])
+        axs[1].set_ylabel("$y(s, t_1)$")
+        axs[1].set_xlabel("$s$")
+
+        print(np.max(abs(np.array(x_an_)-np.array(x))))
+        print(np.max(abs(np.array(y_an_)-np.array(y))))
         plt.show()
 
     def get_XY_t1(self):
@@ -350,38 +372,57 @@ class MeshCenter:
 
 
         # Стыковка правых точек ---------------------------------------------------------------------------------------
-
         if self.inds[-1] == 1.:
-            print("ok")
-            for level in range(0, count_level - 1):  # COUNT_LEVEL - вместе со стартовым
-                right_nodes[1+level].left = nodes[level][-1]
-                nodes[level][-1].right = right_nodes[level]
-            # print(nodes[count_level-1].s, nodes[count_level-1].t)
+            print("Не реализовал")
         else:
-            for level in range(0, count_level - 2):
-                right_nodes[2+level].left = nodes[level][-1]
-                nodes[level][-1].right = right_nodes[level+1]
-            nodes[-1][-1].right = right_nodes[-1]
             right_nodes[1].left = start_nodes[-1]
 
+            for i in range(2, count_level):
+                right_nodes[i].left = nodes[i-2][-1]
+            for i in range(count_level-1):
+                nodes[i][-1].right = right_nodes[i+1]
+        # if self.inds[-1] == 1.:
+        #     print("ok")
+        #     for level in range(1, count_level - 1):  # COUNT_LEVEL - вместе со стартовым
+        #         right_nodes[1+level].left = nodes[level][-1]
+        #         nodes[level][-1].right = right_nodes[level]
+        #     # print(nodes[count_level-1].s, nodes[count_level-1].t)
+        # else:
+        #     for level in range(0, count_level - 2):
+        #         right_nodes[2+level].left = nodes[level][-1]
+        #         nodes[level][-1].right = right_nodes[level+1]
+        #     nodes[-1][-1].right = right_nodes[-1]
+        #     right_nodes[1].left = start_nodes[-1]
+
         # Стыковка соседних точек в слое ------------------------------------------------------------------------------
-        for level in range(0, count_level-1): # COUNT_LEVEL - вместе со стартовым
+
+        for level in range(1, count_level-1):
             for i, ind in enumerate(self.inds[1:-1]):
-                if ind == 1.:
-                    nodes[level][i+1].left = nodes[level][i]
-                    if level == 0:
-                        nodes[level][i].right = start_nodes[i+1]
-                    else:
-                        nodes[level][i].right = nodes[level-1][i+1]
-                else:
-                    nodes[level][i].right = nodes[level][i+1]
-                    if level == 0:
-                        nodes[level][i + 1].left = start_nodes[i]
-                    else:
-                        nodes[level][i + 1].left = nodes[level-1][i]
-        # num = 3
-        # print(nodes[-1][num].s, nodes[-1][num].t)
-        # print(nodes[-1][num].left.s, nodes[-1][num].left.t, nodes[-1][num].right.s, nodes[-1][num].right.t)
+                nodes[level][i+1].left = nodes[level][i] if ind == 1. else nodes[level-1][i]
+            for i, ind in enumerate(self.inds[1:-1]):
+                nodes[level][i].right = nodes[level-1][i+1] if ind == 1. else nodes[level][i+1]
+
+        for i, ind in enumerate(self.inds[1:-1]):
+            nodes[0][i + 1].left = nodes[0][i] if ind == 1. else start_nodes[i]
+        for i, ind in enumerate(self.inds[1:-1]):
+            nodes[0][i].right = start_nodes[i + 1] if ind == 1. else nodes[0][i + 1]
+
+        # for level in range(0, count_level-1): # COUNT_LEVEL - вместе со стартовым
+        #     for i, ind in enumerate(self.inds[1:-1]):
+        #         print(i, len(nodes[0]))
+        #         if ind == 1.:
+        #             nodes[level][i+1].left = nodes[level][i]
+        #             if level == 0:
+        #                 nodes[level][i].right = start_nodes[i+1]
+        #             else:
+        #                 nodes[level][i].right = nodes[level-1][i+1]
+        #         else:
+        #             nodes[level][i].right = nodes[level][i+1]
+        #             if level == 0:
+        #                 nodes[level][i + 1].left = start_nodes[i]
+        #             else:
+        #                 nodes[level][i + 1].left = nodes[level-1][i]
+
         return nodes
 
 
@@ -488,26 +529,7 @@ if __name__ == '__main__':
     mesh.solve()
     for node in mesh.result[-3][-2]:
         print(node)
+    # mesh.plot_border_right()
     # mesh.plot_mesh()
-    s, x, y = mesh.get_XY_t1()
-    x_an_ = [x_an(si, T1) for si in s]
-    y_an_ = [y_an(si, T1) for si in s]
+    mesh.plot_final()
 
-    fig, axs = plt.subplots(nrows=2, ncols=1)
-    axs[0].set_title(f"Численное решение (узлов по s: {COUNT_NODE})")
-    axs[0].plot(s, x_an_)
-    axs[0].plot(s, x, "o")
-    axs[0].grid()
-    axs[0].legend(["аналитическое решение", "численное решение"])
-    axs[0].set_ylabel("$x(s, t_1)$")
-
-    axs[1].plot(s, y_an_)
-    axs[1].plot(s, y, "o")
-    axs[1].grid()
-    axs[1].legend(["аналитическое решение", "численное решение"])
-    axs[1].set_ylabel("$y(s, t_1)$")
-    axs[1].set_xlabel("$s$")
-
-    print(np.max(abs(np.array(x_an_)-np.array(x))))
-    print(np.max(abs(np.array(y_an_)-np.array(y))))
-    plt.show()
