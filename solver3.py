@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 100
+COUNT_NODE = 7
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -177,17 +177,25 @@ class Mesh:
         h_up = ds / self.c1
         return ds, h_down, h_up
 
-    def solve(self):
+    def create_mesh(self):
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = [[] for i in range(6)]
         start_nodes = self.start.get_nodes()
+        self.start.connect(start_nodes) # Хорошо работает
 
+        # left_nodes = self.left.get_nodes(start_nodes[0])
+        # right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
+        # center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
+        # finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
+        # finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
+        #                                       T1 + self.h_down + self.h_up)
+        self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2)
+
+    def solve(self):
+        (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2) = self.result
         # print("получение стартовых узлов")
         for node in start_nodes:  # начальные условия
             node.solver()
         # print("получение оставшихся узлов")
-        left_nodes = self.left.get_nodes(start_nodes[0])
-        right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
-        center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
-
 
         # print("решение узлов по уровням")
         for i, level_nodes in enumerate(center_nodes):
@@ -196,38 +204,35 @@ class Mesh:
                 node.solver()
             right_nodes[i+1].solver()
 
-        finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
-
         for node in finish_nodes:
             node.solver()
 
-
-        finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
-                                              T1+self.h_down+self.h_up)
-
         for node in finish_nodes2:
             node.solver()
-        self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2)
 
     def plot_mesh(self):
         start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
 
-        def plot_node(node, c="g"):
-            # plt.scatter(node.s, node.t, color=c)
-            s = f"{node.t:.2f}"
-            if node.left is None and node.right is None:
-                plt.scatter(node.s, node.t, color="r")
-                s += f" "
-            elif node.left is None:
-                plt.scatter(node.s, node.t, color="b")
-                s += f" ( , {node.right.t:.2f})"
-            elif node.right is None:
-                plt.scatter(node.s, node.t, color="orange")
-                s += f" ({node.left.t:.2f}, )"
-            else:
-                plt.scatter(node.s, node.t, color="g")
-                s += f" ({node.left.t:.2f}, {node.right.t:.2f})"
-            plt.text(node.s, node.t, s, fontsize="xx-small")
+        def plot_arrow_node(node: Node):
+            alpha = 0.8
+            width_arrow = 0.01
+            if node.left is not None:
+                s = node.s
+                t = node.t
+                ds = (node.left.s - node.s)*alpha
+                dt = (node.left.t - node.t)*alpha
+                plt.arrow(s, t, ds, dt, width=width_arrow)
+            if node.right is not None:
+                s = node.s
+                t = node.t
+                ds = (node.right.s - node.s)*alpha
+                dt = (node.right.t - node.t)*alpha
+                plt.arrow(s, t, ds, dt, width=width_arrow)
+
+        def plot_node(node: Node):
+            color = ("r" if node.right is None else "b") if node.left is None else ("orange" if node.right is None else "g")
+            plot_arrow_node(node)
+            plt.scatter(node.s, node.t, color=color)
 
         for node in start_nodes:
             plot_node(node)
@@ -313,7 +318,6 @@ class MeshStart:
         self.t0 = t0
 
     def get_nodes(self):
-
         nodes = []
         t_ = self.t0
         s_ = self.s0
@@ -321,15 +325,14 @@ class MeshStart:
             nodes.append(NodeStart(s_, t_))
             t_ = (t_ + self.h[0]) % (self.h[0]+self.h[1])
             s_ += self.ds
-
-        inds = self.neighbor_is_left()
-        for i, ind in enumerate(inds):
-            if ind == 1.:
-                nodes[i+1].left = nodes[i]
-            else:
-                nodes[i].right = nodes[i+1]
-
         return nodes
+
+    def connect(self, nodes):
+        inds = self.neighbor_is_left()
+        print(inds)
+        for i in range(1, len(nodes)):
+            nodes[i].left = nodes[i-1] if inds[i-1] == 1. else None
+            nodes[i-1].right = nodes[i] if inds[i-1] == 0. else None
 
     def neighbor_is_left(self):
         ind = np.zeros((self.m))
@@ -526,10 +529,11 @@ class MeshFinish:
 
 if __name__ == '__main__':
     mesh = Mesh()
-    mesh.solve()
-    for node in mesh.result[-3][-2]:
-        print(node)
+    mesh.create_mesh()
+    # mesh.solve()
+    # for node in mesh.result[-3][-2]:
+    #     print(node)
     # mesh.plot_border_right()
-    # mesh.plot_mesh()
-    mesh.plot_final()
+    mesh.plot_mesh()
+    # mesh.plot_final()
 
