@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 7
+COUNT_NODE = 12
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -165,7 +165,7 @@ class Mesh:
         self.start = MeshStart(self.ds, [self.h_down, self.h_up], self.m, self.s0, self.t0)
         inds = self.start.neighbor_is_left()
         self.left = MeshLeft([self.h_down, self.h_up], self.s0, self.t1)
-        self.right = MeshRight([self.h_down, self.h_up], self.s1, self.t1)
+        self.right = MeshRight([self.h_down, self.h_up], self.s1, self.t1, inds[-1])
         self.center = MeshCenter(self.ds, [self.h_down, self.h_up], self.m, inds)
         self.finish = MeshFinish([self.h_down, self.h_up], inds)
 
@@ -184,8 +184,11 @@ class Mesh:
 
         left_nodes = self.left.get_nodes(start_nodes[0])
         self.left.connect(left_nodes)
+        self.left.connect_start(left_nodes, start_nodes)
 
-        # right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
+        right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
+        self.right.connect(right_nodes)
+        self.right.connect_start(right_nodes, start_nodes)
         # center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
         # finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
         # finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
@@ -440,16 +443,7 @@ class MeshLeft:
     def get_nodes(self, start_node):
         dt = self.h[0]+self.h[1]
         t = np.arange(start_node.t+dt, self.t1-dt, dt)
-
-        start_left_node = NodeLeft(start_node.s, start_node.t)
-        start_left_node.is_resolved = True
-
-        start_left_node.x = start_node.x
-        start_left_node.y = start_node.y
-
-        nodes = [start_left_node]
-
-        nodes = nodes + [NodeLeft(self.s0, ti) for ti in t]
+        nodes = [NodeLeft(self.s0, ti) for ti in t]
         return nodes
 
     def connect(self, nodes):
@@ -457,31 +451,30 @@ class MeshLeft:
             node.left = nodes[i]
 
     def connect_start(self, nodes, start_nodes):
-        nodes[0].start
+        nodes[0].left = start_nodes[0]
+        nodes[0].right = start_nodes[1]
 
 class MeshRight:
-    def __init__(self, h, s1, t1):
+    def __init__(self, h, s1, t1, ind):
         self.h = h
         self.s1 = s1
         self.t1 = t1
-
+        self.ind = ind
 
     def get_nodes(self, start_node, count_nodes):
         dt = self.h[0] + self.h[1]
         t = [ start_node.t+i*dt for i in range(1, count_nodes)]
-
-        start_right_node = NodeRight(start_node.s, start_node.t, left=start_node.left)
-        start_right_node.is_resolved = True
-        start_right_node.x = start_node.x
-        start_right_node.y = start_node.y
-
-        nodes = [start_right_node]
-        nodes = nodes + [NodeRight(self.s1, ti) for ti in t]
-
-        for i, node in enumerate(nodes[1:]):
-            node.right = nodes[i]
+        nodes = [NodeRight(self.s1, ti) for ti in t]
         return nodes
 
+    def connect(self, nodes):
+        for i, node in enumerate(nodes[1:]):
+            node.right = nodes[i]
+
+    def connect_start(self, nodes, start_nodes):
+        nodes[0].right = start_nodes[-1]
+        if self.ind == 0:
+            nodes[0].left = start_nodes[-2]
 
 class MeshFinish:
     def __init__(self, h, inds):
