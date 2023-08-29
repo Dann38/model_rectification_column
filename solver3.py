@@ -22,9 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-
-
-COUNT_NODE = 12
+COUNT_NODE = 24
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -58,6 +56,7 @@ class Node(ABC):
         return [self.s, self.t, self.x, self.y]
 
     def get_old_point(self):
+
         if not self.left.is_resolved:
             self.left.solver()
 
@@ -105,9 +104,6 @@ class NodeStart(Node):
 
 class NodeLeft(Node):
     def solver(self):
-        # self.x = x_an(self.s, self.t)
-        # self.y = y_an(self.s, self.t)
-
         if self.t == T0:
             self.x = x0(self.s)
             self.y = y0(self.s)
@@ -119,13 +115,25 @@ class NodeLeft(Node):
             b = [xr + hr / 2 * (B11(sr, tr) * xr + B12(sr, tr) * yr),
                  yl + hl / 2 * (G21(tl) * xl + G22(tl) * yl)]
             self.x, self.y = np.linalg.solve(A, b)
+            # self.x = x_an(self.s, self.t)
+            # self.y = y_an(self.s, self.t)
         self.is_resolved = True
 
 
 class NodeRight(Node):
     def solver(self):
-        self.x = x_an(self.s, self.t)
-        self.y = y_an(self.s, self.t)
+        if self.x is not None and self.y is not None:
+            pass
+        else:
+            (sl, tl, xl, yl, hl), (sr, tr, xr, yr, hr) = self.get_old_point()
+
+            A = [[1 - hr / 2 * G11(self.t), -hr / 2 * G12(self.t)],
+                 [-hl / 2 * B21(self.t, self.t), 1 - hl / 2 * B22(self.t, self.t)]]
+            b = [xr + hr / 2 * (G11(tr) * xr + G12(tr) * yr),
+                 yl + hl / 2 * (B21(tl, tr) * xl + B22(tl, tr) * yl)]
+            self.x, self.y = np.linalg.solve(A, b)
+            # self.x = x_an(self.s, self.t)
+            # self.y = y_an(self.s, self.t)
         self.is_resolved = True
 
 
@@ -191,31 +199,45 @@ class Mesh:
 
         for node in finish_nodes:
             node.solver()
-            
+
 
         finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
                                               T1+self.h_down+self.h_up)
 
         for node in finish_nodes2:
             node.solver()
-            print(node)
         self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2)
 
     def plot_mesh(self):
-        if self.result is None:
-            self.solve()
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
+        # if self.result is None:
+        #     self.solve()
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
 
+        fig, ax = plt.subplots()
+
+
+        def onclick(event):
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                  ('double' if event.dblclick else 'single', event.button,
+                   event.x, event.y, event.xdata, event.ydata))
+
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
         def plot_node(node, c="g"):
             # plt.scatter(node.s, node.t, color=c)
+            s = f"{node.t:.2f}"
             if node.left is None and node.right is None:
                 plt.scatter(node.s, node.t, color="r")
+                s += f" "
             elif node.left is None:
                 plt.scatter(node.s, node.t, color="b")
+                s += f" ( , {node.right.t:.2f})"
             elif node.right is None:
                 plt.scatter(node.s, node.t, color="orange")
+                s += f" ({node.left.t:.2f}, )"
             else:
                 plt.scatter(node.s, node.t, color="g")
+                s += f" ({node.left.t:.2f}, {node.right.t:.2f})"
+            plt.text(node.s, node.t, s, fontsize="xx-small")
 
         for node in start_nodes:
             plot_node(node)
@@ -227,11 +249,18 @@ class Mesh:
             for node in level:
                 plot_node(node)
         for node in finish_nodes:
-            # plt.scatter(node.s, node.t, color="yellow")
+            plot_node(node)
+        for node in finish_nodes2:
             plot_node(node)
 
+        # x = [node.x for node in left_nodes]
+        # y = [node.y for node in left_nodes]
+        # t = [node.t for node in left_nodes]
+        # plt.plot(t, x)
+        # plt.plot(np.array(t), x_an(S0, np.array(t)))
+
         plt.xlim([self.s0, self.s1])
-        plt.ylim([self.t0, self.t1])
+        plt.ylim([self.t0, self.t1+0.5])
         plt.show()
 
     def get_XY_t1(self):
@@ -310,17 +339,20 @@ class MeshCenter:
                 nodes[0][i].right = node
 
         # Стыковка левых точек ----------------------------------------------------------------------------------------
-        l_start = 1
-        for i, left_node in enumerate(left_nodes[l_start:]):
-            nodes[i][0].left = left_node
+        for i in range(count_level-1):
+            nodes[i][0].left = left_nodes[i+1]
+
         for i in range(count_level-2):
             # print(f"l: {left_nodes[i+2].s:.2f}, {left_nodes[i+2].t:.2f}   <- {nodes[i][0].s:.2f}, {nodes[i][0].t:.2f}")
             left_nodes[i+2].right = nodes[i][0]
+
         left_nodes[1].right = start_nodes[0]
+
 
         # Стыковка правых точек ---------------------------------------------------------------------------------------
 
         if self.inds[-1] == 1.:
+            print("ok")
             for level in range(0, count_level - 1):  # COUNT_LEVEL - вместе со стартовым
                 right_nodes[1+level].left = nodes[level][-1]
                 nodes[level][-1].right = right_nodes[level]
@@ -347,7 +379,9 @@ class MeshCenter:
                         nodes[level][i + 1].left = start_nodes[i]
                     else:
                         nodes[level][i + 1].left = nodes[level-1][i]
-
+        # num = 3
+        # print(nodes[-1][num].s, nodes[-1][num].t)
+        # print(nodes[-1][num].left.s, nodes[-1][num].left.t, nodes[-1][num].right.s, nodes[-1][num].right.t)
         return nodes
 
 
@@ -361,7 +395,9 @@ class MeshLeft:
         dt = self.h[0]+self.h[1]
         t = np.arange(start_node.t+dt, self.t1-dt, dt)
 
-        start_left_node = NodeLeft(start_node.s, start_node.t, right=start_node.right)
+        start_left_node = NodeLeft(start_node.s, start_node.t)
+        start_left_node.is_resolved = True
+
         start_left_node.x = start_node.x
         start_left_node.y = start_node.y
 
@@ -370,6 +406,7 @@ class MeshLeft:
         nodes = nodes + [NodeLeft(self.s0, ti) for ti in t]
         for i, node in enumerate(nodes[1:]):
             node.left = nodes[i]
+
         return nodes
 
 
@@ -385,13 +422,14 @@ class MeshRight:
         t = [ start_node.t+i*dt for i in range(1, count_nodes)]
 
         start_right_node = NodeRight(start_node.s, start_node.t, left=start_node.left)
+        start_right_node.is_resolved = True
         start_right_node.x = start_node.x
         start_right_node.y = start_node.y
 
         nodes = [start_right_node]
         nodes = nodes + [NodeRight(self.s1, ti) for ti in t]
 
-        for i, node in enumerate(nodes):
+        for i, node in enumerate(nodes[1:]):
             node.right = nodes[i]
         return nodes
 
@@ -435,10 +473,11 @@ class MeshFinish:
         else:
             fin_nodes[-1].right = right_node
         # Левая граница для левого края -----------------------------
-        if fin_nodes[0].t < fin_nodes[1].t:
-            fin_nodes[0].left = level_end[1]
+        if fin_nodes[1].t > fin_nodes[0].t:
+            fin_nodes[0].right = level_end[1]
         else:
-            fin_nodes[0].left = fin_nodes[1]
+            fin_nodes[0].right = fin_nodes[1]
+        fin_nodes[0].left = level_end[0]
         # -----------------------------------------------------------
 
         return fin_nodes
@@ -446,9 +485,9 @@ class MeshFinish:
 
 if __name__ == '__main__':
     mesh = Mesh()
-    # mesh.solve()
-    # for node in mesh.result[-1]:
-    #     print(node)
+    mesh.solve()
+    for node in mesh.result[-3][-2]:
+        print(node)
     # mesh.plot_mesh()
     s, x, y = mesh.get_XY_t1()
     x_an_ = [x_an(si, T1) for si in s]
