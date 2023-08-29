@@ -182,7 +182,9 @@ class Mesh:
         start_nodes = self.start.get_nodes()
         self.start.connect(start_nodes) # Хорошо работает
 
-        # left_nodes = self.left.get_nodes(start_nodes[0])
+        left_nodes = self.left.get_nodes(start_nodes[0])
+        self.left.connect(left_nodes)
+
         # right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
         # center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
         # finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
@@ -448,11 +450,14 @@ class MeshLeft:
         nodes = [start_left_node]
 
         nodes = nodes + [NodeLeft(self.s0, ti) for ti in t]
+        return nodes
+
+    def connect(self, nodes):
         for i, node in enumerate(nodes[1:]):
             node.left = nodes[i]
 
-        return nodes
-
+    def connect_start(self, nodes, start_nodes):
+        nodes[0].start
 
 class MeshRight:
     def __init__(self, h, s1, t1):
