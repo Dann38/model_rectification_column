@@ -546,6 +546,6 @@ if __name__ == '__main__':
     # for node in mesh.result[-3][-2]:
     #     print(node)
     # mesh.plot_border_right()
-    mesh.plot_mesh()
-    # mesh.plot_final()
+    # mesh.plot_mesh()
+    mesh.plot_final()
 
