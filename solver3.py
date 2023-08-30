@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 30
+COUNT_NODE =10
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -542,10 +542,10 @@ class MeshFinish:
 if __name__ == '__main__':
     mesh = Mesh()
     mesh.create_mesh()
-    mesh.solve()
+    # mesh.solve()
     # for node in mesh.result[-3][-2]:
     #     print(node)
-    mesh.plot_border_right()
-    # mesh.plot_mesh()
-    mesh.plot_final()
+    # mesh.plot_border_right()
+    mesh.plot_mesh()
+    # mesh.plot_final()
 
