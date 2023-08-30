@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 12
+COUNT_NODE = 13
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -189,7 +189,15 @@ class Mesh:
         right_nodes = self.right.get_nodes(start_nodes[-1], len(left_nodes))
         self.right.connect(right_nodes)
         self.right.connect_start(right_nodes, start_nodes)
-        # center_nodes = self.center.get_nodes(start_nodes[1:-1], left_nodes, right_nodes)
+
+        center_nodes = self.center.get_nodes(start_nodes[1:-1], len(left_nodes))
+        self.center.connect(center_nodes)
+        self.center.connect_start(center_nodes, start_nodes)
+        self.center.connect_left(center_nodes, left_nodes)
+        self.center.connect_right(center_nodes, right_nodes)
+
+        self.left.connect_center(left_nodes, center_nodes)
+        self.right.connect_center(right_nodes, center_nodes)
         # finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
         # finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
         #                                       T1 + self.h_down + self.h_up)
@@ -359,36 +367,46 @@ class MeshCenter:
         self.m = m
         self.inds = inds
 
-    def get_nodes(self, start_nodes, left_nodes, right_nodes):
-        count_level = len(left_nodes)
-        nodes = [[NoneCenter(node.s, node.t+self.dt*i) for node in start_nodes] for i in range(1, count_level)]
+    def get_nodes(self, start_nodes, count_level):
+        nodes = [[NoneCenter(node.s, node.t+self.dt*i) for node in start_nodes] for i in range(1, count_level+1)]
+        return nodes
 
-        # Стыковка начальных точек ------------------------------------------------------------------------------------
-        for i, node in enumerate(start_nodes[1:]):
-            if self.inds[i + 1] == 1:
-                nodes[0][i].right = node
+    def connect(self, nodes):
+        # Стыковка соседних точек в слое ------------------------------------------------------------------------------
+        count_level = len(nodes)
+        for level in range(1, count_level):
+            for i, ind in enumerate(self.inds[1:-1]):
+                nodes[level][i + 1].left = nodes[level][i] if ind == 1. else nodes[level - 1][i]
+                nodes[level][i].right = nodes[level - 1][i + 1] if ind == 1. else nodes[level][i + 1]
 
+        for i, ind in enumerate(self.inds[1:-1]):
+            if ind == 1.:
+                nodes[0][i + 1].left = nodes[0][i]
+            else:
+                nodes[0][i].right = nodes[0][i + 1]
+
+    def connect_start(self, nodes, start_nodes):
+        for i, ind in enumerate(self.inds[1:-1]):
+            if ind == 1.:
+                nodes[0][i].right = start_nodes[i + 2]
+            else:
+                nodes[0][i + 1].left = start_nodes[i+1]
+        if self.inds[-1] == 1.:
+            nodes[0][-1].right = start_nodes[-1]
+
+    def connect_left(self, nodes, left_nodes):
         # Стыковка левых точек ----------------------------------------------------------------------------------------
-        for i in range(count_level-1):
-            nodes[i][0].left = left_nodes[i+1]
+        for i in range(len(nodes)):
+            nodes[i][0].left = left_nodes[i]
 
-        for i in range(count_level-2):
-            # print(f"l: {left_nodes[i+2].s:.2f}, {left_nodes[i+2].t:.2f}   <- {nodes[i][0].s:.2f}, {nodes[i][0].t:.2f}")
-            left_nodes[i+2].right = nodes[i][0]
-
-        left_nodes[1].right = start_nodes[0]
-
-
+    def connect_right(self, nodes, right_nodes):
         # Стыковка правых точек ---------------------------------------------------------------------------------------
         if self.inds[-1] == 1.:
-            print("Не реализовал")
+            for i in range(1, len(nodes)):
+                nodes[i][-1].right = right_nodes[i-1]
         else:
-            right_nodes[1].left = start_nodes[-1]
-
-            for i in range(2, count_level):
-                right_nodes[i].left = nodes[i-2][-1]
-            for i in range(count_level-1):
-                nodes[i][-1].right = right_nodes[i+1]
+            for i in range(len(nodes)):
+                nodes[i][-1].right = right_nodes[i]
         # if self.inds[-1] == 1.:
         #     print("ok")
         #     for level in range(1, count_level - 1):  # COUNT_LEVEL - вместе со стартовым
@@ -401,38 +419,6 @@ class MeshCenter:
         #         nodes[level][-1].right = right_nodes[level+1]
         #     nodes[-1][-1].right = right_nodes[-1]
         #     right_nodes[1].left = start_nodes[-1]
-
-        # Стыковка соседних точек в слое ------------------------------------------------------------------------------
-
-        for level in range(1, count_level-1):
-            for i, ind in enumerate(self.inds[1:-1]):
-                nodes[level][i+1].left = nodes[level][i] if ind == 1. else nodes[level-1][i]
-            for i, ind in enumerate(self.inds[1:-1]):
-                nodes[level][i].right = nodes[level-1][i+1] if ind == 1. else nodes[level][i+1]
-
-        for i, ind in enumerate(self.inds[1:-1]):
-            nodes[0][i + 1].left = nodes[0][i] if ind == 1. else start_nodes[i]
-        for i, ind in enumerate(self.inds[1:-1]):
-            nodes[0][i].right = start_nodes[i + 1] if ind == 1. else nodes[0][i + 1]
-
-        # for level in range(0, count_level-1): # COUNT_LEVEL - вместе со стартовым
-        #     for i, ind in enumerate(self.inds[1:-1]):
-        #         print(i, len(nodes[0]))
-        #         if ind == 1.:
-        #             nodes[level][i+1].left = nodes[level][i]
-        #             if level == 0:
-        #                 nodes[level][i].right = start_nodes[i+1]
-        #             else:
-        #                 nodes[level][i].right = nodes[level-1][i+1]
-        #         else:
-        #             nodes[level][i].right = nodes[level][i+1]
-        #             if level == 0:
-        #                 nodes[level][i + 1].left = start_nodes[i]
-        #             else:
-        #                 nodes[level][i + 1].left = nodes[level-1][i]
-
-        return nodes
-
 
 class MeshLeft:
     def __init__(self, h, s0, t1):
@@ -454,6 +440,10 @@ class MeshLeft:
         nodes[0].left = start_nodes[0]
         nodes[0].right = start_nodes[1]
 
+    def connect_center(self, nodes, center_nodes):
+        for i in range(len(nodes)-1):
+            nodes[i+1].right = center_nodes[i][0]
+
 class MeshRight:
     def __init__(self, h, s1, t1, ind):
         self.h = h
@@ -463,7 +453,7 @@ class MeshRight:
 
     def get_nodes(self, start_node, count_nodes):
         dt = self.h[0] + self.h[1]
-        t = [ start_node.t+i*dt for i in range(1, count_nodes)]
+        t = [ start_node.t+i*dt for i in range(1, count_nodes+1)]
         nodes = [NodeRight(self.s1, ti) for ti in t]
         return nodes
 
@@ -476,6 +466,12 @@ class MeshRight:
         if self.ind == 0:
             nodes[0].left = start_nodes[-2]
 
+    def connect_center(self, nodes, center_nodes):
+        if self.ind == 1.:
+            for i in range(len(nodes)):
+                nodes[i].left = center_nodes[i][-1]
+        else:
+            pass
 class MeshFinish:
     def __init__(self, h, inds):
         self.dt = h[1]+h[0]
