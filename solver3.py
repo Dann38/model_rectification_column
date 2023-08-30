@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 13
+COUNT_NODE = 120
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -87,7 +87,11 @@ class NodeStart(Node):
             self.left.solver()
 
         if self.right is None:
-            self.right = NodeStart(c[0]*(self.t-t0)+self.s, t0)
+            s = c[0]*(self.t-t0)+self.s
+            if s > S1:
+                print("opa")
+                s = S1
+            self.right = NodeStart(s, t0)
             self.right.solver()
 
     def solver(self):
@@ -142,9 +146,6 @@ class NodeFinish(Node):
         self.solver_node()
         self.is_resolved = True
 
-    # def get_xy_in_t1(self):
-    #     self.
-
 
 class NoneCenter(Node):
     def solver(self):
@@ -178,7 +179,7 @@ class Mesh:
         return ds, h_down, h_up
 
     def create_mesh(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = [[] for i in range(6)]
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = [[] for i in range(5)]
         start_nodes = self.start.get_nodes()
         self.start.connect(start_nodes) # Хорошо работает
 
@@ -198,13 +199,18 @@ class Mesh:
 
         self.left.connect_center(left_nodes, center_nodes)
         self.right.connect_center(right_nodes, center_nodes)
-        # finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
-        # finish_nodes2 = self.finish.get_nodes(finish_nodes[0], finish_nodes[1:-1], finish_nodes[-1],
-        #                                       T1 + self.h_down + self.h_up)
-        self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2)
+
+        finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
+        self.finish.connect(finish_nodes)
+
+        self.finish.connect_center(finish_nodes, center_nodes)
+        self.finish.connect_left(finish_nodes, left_nodes)
+        self.finish.connect_right(finish_nodes, right_nodes)
+
+        self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes)
 
     def solve(self):
-        (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2) = self.result
+        (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes) = self.result
         # print("получение стартовых узлов")
         for node in start_nodes:  # начальные условия
             node.solver()
@@ -212,16 +218,15 @@ class Mesh:
 
         # print("решение узлов по уровням")
         for i, level_nodes in enumerate(center_nodes):
-            left_nodes[i+1].solver()
+            left_nodes[i].solver()
             for node in level_nodes:
                 node.solver()
-            right_nodes[i+1].solver()
+            right_nodes[i].solver()
 
-        for node in finish_nodes:
-            node.solver()
+        for level in finish_nodes:
+            for node in level:
+                node.solver()
 
-        for node in finish_nodes2:
-            node.solver()
 
     def plot_mesh(self):
         start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
@@ -256,17 +261,16 @@ class Mesh:
         for level in center_nodes:
             for node in level:
                 plot_node(node)
-        for node in finish_nodes:
-            plot_node(node)
-        for node in finish_nodes2:
-            plot_node(node)
+        for level in finish_nodes:
+            for node in level:
+                plot_node(node)
 
         plt.xlim([self.s0, self.s1])
         plt.ylim([self.t0, self.t1+0.5])
         plt.show()
 
     def plot_border_right(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
         fig, axs = plt.subplots(nrows=2, ncols=1)
         x = [node.x for node in right_nodes]
         y = [node.y for node in right_nodes]
@@ -306,7 +310,7 @@ class Mesh:
     def get_XY_t1(self):
         if self.result is None:
             self.solve()
-        start_nodes, left_nodes, right_nodes, center_nodes, f1, f2 = self.result
+        a1, a2, a3, a4, finish = self.result
 
         def approx(t_u, t_d, f_u, f_d):
 
@@ -314,10 +318,9 @@ class Mesh:
                 return f_u
             return (f_d-f_u)*(T1-t_u)/(t_d-t_u) + f_u
 
-
-        x_t1 = [approx(u.t, d.t, u.x, d.x) for u, d in zip(f1, f2)]
-        y_t1 = [approx(u.t, d.t, u.y, d.y) for u, d in zip(f1, f2)]
-        s_ = [n.s for n in f1]
+        x_t1 = [approx(u.t, d.t, u.x, d.x) for u, d in zip(finish[0],finish[1])]
+        y_t1 = [approx(u.t, d.t, u.y, d.y) for u, d in zip(finish[0],finish[1])]
+        s_ = [n.s for n in finish[0]]
 
         return s_, x_t1, y_t1
 
@@ -342,7 +345,6 @@ class MeshStart:
 
     def connect(self, nodes):
         inds = self.neighbor_is_left()
-        print(inds)
         for i in range(1, len(nodes)):
             nodes[i].left = nodes[i-1] if inds[i-1] == 1. else None
             nodes[i-1].right = nodes[i] if inds[i-1] == 0. else None
@@ -372,7 +374,6 @@ class MeshCenter:
         return nodes
 
     def connect(self, nodes):
-        # Стыковка соседних точек в слое ------------------------------------------------------------------------------
         count_level = len(nodes)
         for level in range(1, count_level):
             for i, ind in enumerate(self.inds[1:-1]):
@@ -407,18 +408,7 @@ class MeshCenter:
         else:
             for i in range(len(nodes)):
                 nodes[i][-1].right = right_nodes[i]
-        # if self.inds[-1] == 1.:
-        #     print("ok")
-        #     for level in range(1, count_level - 1):  # COUNT_LEVEL - вместе со стартовым
-        #         right_nodes[1+level].left = nodes[level][-1]
-        #         nodes[level][-1].right = right_nodes[level]
-        #     # print(nodes[count_level-1].s, nodes[count_level-1].t)
-        # else:
-        #     for level in range(0, count_level - 2):
-        #         right_nodes[2+level].left = nodes[level][-1]
-        #         nodes[level][-1].right = right_nodes[level+1]
-        #     nodes[-1][-1].right = right_nodes[-1]
-        #     right_nodes[1].left = start_nodes[-1]
+
 
 class MeshLeft:
     def __init__(self, h, s0, t1):
@@ -443,6 +433,7 @@ class MeshLeft:
     def connect_center(self, nodes, center_nodes):
         for i in range(len(nodes)-1):
             nodes[i+1].right = center_nodes[i][0]
+
 
 class MeshRight:
     def __init__(self, h, s1, t1, ind):
@@ -471,7 +462,10 @@ class MeshRight:
             for i in range(len(nodes)):
                 nodes[i].left = center_nodes[i][-1]
         else:
-            pass
+            for i in range(1, len(nodes)):
+                nodes[i].left = center_nodes[i-1][-1]
+
+
 class MeshFinish:
     def __init__(self, h, inds):
         self.dt = h[1]+h[0]
@@ -479,55 +473,66 @@ class MeshFinish:
 
     def get_nodes(self, left_node, center_nodes, right_node, t1):
         level_end = [left_node] + center_nodes + [right_node]
-        finish_nodes = [NoneCenter(node.s, node.t+self.dt) for node in level_end]
+        finish_nodes = [[],[]]
+        for i in [0, 1]:
+            dt = (1+i)*self.dt
+            finish_nodes[i] = ([NodeLeft(left_node.s, left_node.t+dt)] +
+                        [NoneCenter(node.s, node.t+dt) for node in center_nodes] +
+                        [NodeRight(right_node.s, right_node.t+dt)])
 
-        fin_nodes = []
-        for i, f in enumerate(finish_nodes):
-            if f.t < t1:
-                if i == 0:
-                    fin_nodes.append(NodeLeft(f.s, f.t))
-                elif i == len(finish_nodes)-1:
-                    fin_nodes.append(NodeRight(f.s, f.t))
-                else:
-                    fin_nodes.append(NodeFinish(f.s, f.t))
+        return finish_nodes
+
+    def connect(self, nodes):
+        nodes[1][1].left = nodes[1][0]
+        nodes[1][0].right = nodes[0][1]
+        nodes[1][0].left = nodes[0][0]
+        nodes[0][1].left = nodes[0][0]
+        for i, ind in enumerate(self.inds[1:-1]):
+            if ind == 1.:
+                nodes[0][i + 2].left = nodes[0][i + 1]
+                nodes[1][i + 2].left = nodes[1][i + 1]
+                nodes[1][i + 1].right = nodes[0][i + 2]  # соединение с нижним
             else:
-                fin_nodes.append(level_end[i])
+                nodes[0][i + 1].right = nodes[0][i + 2]
+                nodes[1][i + 1].right = nodes[1][i + 2]
+                nodes[1][i + 2].left = nodes[0][i + 1]  # соединение с нижним
+        if self.inds[-1] == 1.:
+            nodes[0][-1].left = nodes[0][-2]
+            nodes[1][-1].left = nodes[1][-2]
+            nodes[1][-2].right = nodes[0][-1]
+        else:
+            nodes[0][-2].right = nodes[0][-1]
+            nodes[1][-2].right = nodes[1][-1]
+            nodes[1][-1].left = nodes[0][-2]
+        nodes[1][-1].right = nodes[0][-1]
 
-        for i in range(0, len(fin_nodes)-1):
-            if fin_nodes[i+1].t < fin_nodes[i].t:
-                if fin_nodes[i].right is None:
-                    fin_nodes[i].right = fin_nodes[i+1]
-                if fin_nodes[i+1].left is None:
-                    fin_nodes[i+1].left = level_end[i]
+
+    def connect_center(self, nodes, center_nodes):
+        nodes[0][0].right = center_nodes[-1][0]
+        for i, ind in enumerate(self.inds[1:-1]):
+            if ind == 1.:
+                nodes[0][i + 1].right = center_nodes[-1][i + 1]  # соединение с нижним
             else:
-                if fin_nodes[i + 1].left is None:
-                    fin_nodes[i+1].left = fin_nodes[i]
-                if fin_nodes[i].right is None:
-                    fin_nodes[i].right = level_end[i+1]
+                nodes[0][i + 2].left = center_nodes[-1][i]  # соединение с нижним
+        if self.inds[-1] == 0.:
+            nodes[0][-1].left = center_nodes[-1][-1]
 
-        # Правая граница для правого края ---------------------------
-        if fin_nodes[-1].t == right_node.t:
-            fin_nodes[-1] = right_node
-        else:
-            fin_nodes[-1].right = right_node
-        # Левая граница для левого края -----------------------------
-        if fin_nodes[1].t > fin_nodes[0].t:
-            fin_nodes[0].right = level_end[1]
-        else:
-            fin_nodes[0].right = fin_nodes[1]
-        fin_nodes[0].left = level_end[0]
-        # -----------------------------------------------------------
+    def connect_left(self, nodes, left_nodes):
+        nodes[0][0].left = left_nodes[-1]
 
-        return fin_nodes
+    def connect_right(self, nodes, right_nodes):
+        if self.inds[-1] == 1.:
+            nodes[0][-2].right = right_nodes[-1]
+        nodes[0][-1].right = right_nodes[-1]
 
 
 if __name__ == '__main__':
     mesh = Mesh()
     mesh.create_mesh()
-    # mesh.solve()
+    mesh.solve()
     # for node in mesh.result[-3][-2]:
     #     print(node)
     # mesh.plot_border_right()
-    mesh.plot_mesh()
-    # mesh.plot_final()
+    # mesh.plot_mesh()
+    mesh.plot_final()
 
