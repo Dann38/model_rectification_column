@@ -22,7 +22,7 @@ G12 = lambda t: - G11(t)
 G21 = lambda t: 2*np.cos(t)/(np.cos(t)-2*np.sin(t))
 G22 = lambda t: - G21(t)
 
-COUNT_NODE = 120
+COUNT_NODE = 1200
 
 x_an = lambda s, t: np.exp(s)*np.cos(t)
 y_an = lambda s, t: (s+2)*np.sin(t)
@@ -88,19 +88,29 @@ class NodeStart(Node):
 
         if self.right is None:
             s = c[0]*(self.t-t0)+self.s
-            if s > S1:
-                print("opa")
-                s = S1
+
             self.right = NodeStart(s, t0)
-            self.right.solver()
+            if s > S1:
+                s1t0_node = NodeStart(S1, T0)
+                s1t0_node.solver()
+
+                temp_node = NodeRight(self.s, self.t, self.left, s1t0_node)
+                temp_node.solver()
+                self.x = temp_node.x
+                self.y = temp_node.y
+                self.is_resolved = True
+            else:
+                self.right.solver()
 
     def solver(self):
+
         if self.t == T0:
             self.x = x0(self.s)
             self.y = y0(self.s)
         elif self.right is None or self.left is None:
             self.create_parents_node([C1, C2], T0)
-            self.solver_node()
+            if not self.is_resolved:
+                self.solver_node()
         else:
             self.solver_node()
         self.is_resolved = True
@@ -132,9 +142,9 @@ class NodeRight(Node):
             (sl, tl, xl, yl, hl), (sr, tr, xr, yr, hr) = self.get_old_point()
 
             A = [[1 - hr / 2 * G11(self.t), -hr / 2 * G12(self.t)],
-                 [-hl / 2 * B21(self.t, self.t), 1 - hl / 2 * B22(self.t, self.t)]]
+                 [-hl / 2 * B21(self.s, self.t), 1 - hl / 2 * B22(self.s, self.t)]]
             b = [xr + hr / 2 * (G11(tr) * xr + G12(tr) * yr),
-                 yl + hl / 2 * (B21(tl, tr) * xl + B22(tl, tr) * yl)]
+                 yl + hl / 2 * (B21(sl, tl) * xl + B22(sl, tl) * yl)]
             self.x, self.y = np.linalg.solve(A, b)
             # self.x = x_an(self.s, self.t)
             # self.y = y_an(self.s, self.t)
@@ -200,7 +210,7 @@ class Mesh:
         self.left.connect_center(left_nodes, center_nodes)
         self.right.connect_center(right_nodes, center_nodes)
 
-        finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1], T1)
+        finish_nodes = self.finish.get_nodes(left_nodes[-1], center_nodes[-1], right_nodes[-1])
         self.finish.connect(finish_nodes)
 
         self.finish.connect_center(finish_nodes, center_nodes)
@@ -229,7 +239,7 @@ class Mesh:
 
 
     def plot_mesh(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes, finish_nodes2 = self.result
+        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
 
         def plot_arrow_node(node: Node):
             alpha = 0.8
@@ -318,8 +328,8 @@ class Mesh:
                 return f_u
             return (f_d-f_u)*(T1-t_u)/(t_d-t_u) + f_u
 
-        x_t1 = [approx(u.t, d.t, u.x, d.x) for u, d in zip(finish[0],finish[1])]
-        y_t1 = [approx(u.t, d.t, u.y, d.y) for u, d in zip(finish[0],finish[1])]
+        x_t1 = [approx(u.t, d.t, u.x, d.x) for u, d in zip(finish[0], finish[1])]
+        y_t1 = [approx(u.t, d.t, u.y, d.y) for u, d in zip(finish[0], finish[1])]
         s_ = [n.s for n in finish[0]]
 
         return s_, x_t1, y_t1
@@ -332,22 +342,26 @@ class MeshStart:
         self.m = m
         self.s0 = s0
         self.t0 = t0
+        self.inds = self.neighbor_is_left()
 
     def get_nodes(self):
         nodes = []
         t_ = self.t0
         s_ = self.s0
+
         for i in range(self.m+1):
             nodes.append(NodeStart(s_, t_))
             t_ = (t_ + self.h[0]) % (self.h[0]+self.h[1])
             s_ += self.ds
+
         return nodes
 
     def connect(self, nodes):
-        inds = self.neighbor_is_left()
+
         for i in range(1, len(nodes)):
-            nodes[i].left = nodes[i-1] if inds[i-1] == 1. else None
-            nodes[i-1].right = nodes[i] if inds[i-1] == 0. else None
+            nodes[i].left = nodes[i-1] if self.inds[i-1] == 1. else None
+            nodes[i-1].right = nodes[i] if self.inds[i-1] == 0. else None
+
 
     def neighbor_is_left(self):
         ind = np.zeros((self.m))
@@ -471,14 +485,14 @@ class MeshFinish:
         self.dt = h[1]+h[0]
         self.inds = inds
 
-    def get_nodes(self, left_node, center_nodes, right_node, t1):
-        level_end = [left_node] + center_nodes + [right_node]
+    def get_nodes(self, left_node, center_nodes, right_node):
         finish_nodes = [[],[]]
         for i in [0, 1]:
             dt = (1+i)*self.dt
             finish_nodes[i] = ([NodeLeft(left_node.s, left_node.t+dt)] +
                         [NoneCenter(node.s, node.t+dt) for node in center_nodes] +
                         [NodeRight(right_node.s, right_node.t+dt)])
+
 
         return finish_nodes
 
@@ -506,7 +520,6 @@ class MeshFinish:
             nodes[1][-1].left = nodes[0][-2]
         nodes[1][-1].right = nodes[0][-1]
 
-
     def connect_center(self, nodes, center_nodes):
         nodes[0][0].right = center_nodes[-1][0]
         for i, ind in enumerate(self.inds[1:-1]):
@@ -532,7 +545,7 @@ if __name__ == '__main__':
     mesh.solve()
     # for node in mesh.result[-3][-2]:
     #     print(node)
-    # mesh.plot_border_right()
+    mesh.plot_border_right()
     # mesh.plot_mesh()
     mesh.plot_final()
 
