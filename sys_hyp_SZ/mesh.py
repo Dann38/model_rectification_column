@@ -25,7 +25,7 @@ class Mesh:
         h_up = ds / self.c1
         return ds, h_down, h_up
 
-    def create_mesh(self):
+    def create_mesh(self, revers_time=False):
         start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = [[] for i in range(5)]
         start_nodes = self.start.get_nodes()
         self.start.connect(start_nodes) # Хорошо работает
@@ -54,6 +54,9 @@ class Mesh:
         self.finish.connect_left(finish_nodes, left_nodes)
         self.finish.connect_right(finish_nodes, right_nodes)
 
+        if revers_time:
+            self.start.revers_time(start_nodes)
+            self.left.revers_time()
         self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes)
 
     def solve(self):
@@ -73,7 +76,6 @@ class Mesh:
         for level in finish_nodes:
             for node in level:
                 node.solver()
-
 
     def plot_mesh(self):
         start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
@@ -212,7 +214,6 @@ class MeshStart:
         for i in range(1, len(nodes)):
             nodes[i].left = nodes[i-1] if self.inds[i-1] == 1. else None
             nodes[i-1].right = nodes[i] if self.inds[i-1] == 0. else None
-
 
     def neighbor_is_left(self):
         ind = np.zeros((self.m))
