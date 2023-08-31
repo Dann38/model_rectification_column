@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 s = [0, 2]
 t = [0, 4]
 c = [1, 3]
-m = 50
+m = 29
 B11 = lambda s, t: 1
 B12 = lambda s, t: - 1/np.exp(s)
 B21 = lambda s, t: np.exp(s)

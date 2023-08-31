@@ -9,29 +9,51 @@ T1 = 4
 S0 = 0
 S1 = 2
 
-B11 = lambda s, t: 1
-B12 = lambda s, t: - 1/np.exp(s)
-B21 = lambda s, t: np.exp(s)
-B22 = lambda s, t: C2
+A1 = lambda s, t: C1
+A2 = lambda s, t: -np.exp(s)*(T1-t)/(s+2)
+B1 = lambda s, t: 1/np.exp(s)
+B2 = lambda s, t: -C2/(s+2)
+
+Fx = lambda s, t: - np.exp(s)*np.cos(T1-t)
+Fy = lambda s, t: (T1 - t)*np.cos(T1 - t) - (s+2)*np.cos(T1 - t)
+
+G1 = lambda t: 1
+G2 = lambda t: 1
+
+fun1 = lambda s: 0
+fun2 = lambda s: 0
+
+D1 = lambda t: -C2*(S1+2)*np.sin(T1-t)+np.cos(T1-t) * (C1*np.exp(S1)*(T1-t)-C2*(S1+2))
+D2 = lambda t: -C1*np.exp(S0)*np.cos(T1-t)*(1+T1-t)+np.sin(T1-t) * (C2*(S0+2)+C1*np.exp(S0)*(T1-t))
 
 
-G11 = lambda t:  np.sin(t) / (np.exp(S1) * (np.sin(t) + 2*np.cos(t)) - S1**2 - np.cos(t))
+# Преобразования для решателя +=================================================+
+B11 = lambda s, t: A1(s, T1-t)
+B12 = lambda s, t: A2(s, T1-t)
+B21 = lambda s, t: B1(s, T1-t)
+B22 = lambda s, t: B2(s, T1-t)
+
+
+G11 = lambda t:  G1(T1-t)
 G12 = lambda t: - G11(t)
-G21 = lambda t: (2*np.sin(t) - np.cos(t)) / (np.sin(t) + np.cos(t))
+G21 = lambda t:  G2(T1-t)
 G22 = lambda t: - G21(t)
 
-F1 = lambda s, t: -2*C1*s-s**2+np.cos(t)
-F2 = lambda s, t: -2*np.exp(s)*np.sin(t)-np.exp(s)*s**2
+G = [[G11, G12],
+     [G21, G22]]
+
+F1 = lambda s, t: Fx(s, T1-t)
+F2 = lambda s, t: Fy(s, T1-t)
 F = [F1, F2]
 
-x0 = lambda s: s**2+1
-y0 = lambda s: 2*np.exp(s)
+x0 = lambda s: fun1(s)
+y0 = lambda s: fun2(s)
 
 
 COUNT_NODE = 60
 
-x_an = lambda s, t: s**2+np.cos(t)
-y_an = lambda s, t: np.exp(s)*(np.sin(t)+2*np.cos(t))
+x_an = lambda s, t: np.exp(s)*(T1-t)*np.cos(T1-t)
+y_an = lambda s, t: (s+2)*np.sin(T1-t)
 
 
 class Node(ABC):
@@ -130,13 +152,13 @@ class NodeLeft(Node):
         else:
             (sl, tl, xl, yl, hl), (sr, tr, xr, yr, hr) = self.get_old_point()
 
-            A = [[1 - hr / 2 * B11(self.s, self.t), -hr / 2 * B12(self.s, self.t)],
-                 [-hl / 2 * G21(self.t), 1 - hl / 2 * G22(self.t)]]
-            b = [xr + hr / 2 * (B11(sr, tr) * xr + B12(sr, tr) * yr + F1(self.s, self.t) + F1(sr, tr)),
-                 yl + hl / 2 * (G21(tl) * xl + G22(tl) * yl)]
-            self.x, self.y = np.linalg.solve(A, b)
-            # self.x = x_an(self.s, self.t)
-            # self.y = y_an(self.s, self.t)
+            # A = [[1 - hr / 2 * B11(self.s, self.t), -hr / 2 * B12(self.s, self.t)],
+            #      [-hl / 2 * G21(self.t), 1 - hl / 2 * G22(self.t)]]
+            # b = [xr + hr / 2 * (B11(sr, tr) * xr + B12(sr, tr) * yr + F1(self.s, self.t) + F1(sr, tr)),
+            #      yl + hl / 2 * (G21(tl) * xl + G22(tl) * yl)]
+            # self.x, self.y = np.linalg.solve(A, b)
+            self.x = x_an(self.s, T1-self.t)
+            self.y = y_an(self.s, T1-self.t)
         self.is_resolved = True
 
 
@@ -147,13 +169,13 @@ class NodeRight(Node):
         else:
             (sl, tl, xl, yl, hl), (sr, tr, xr, yr, hr) = self.get_old_point()
 
-            A = [[1 - hr / 2 * G11(self.t), -hr / 2 * G12(self.t)],
-                 [-hl / 2 * B21(self.s, self.t), 1 - hl / 2 * B22(self.s, self.t)]]
-            b = [xr + hr / 2 * (G11(tr) * xr + G12(tr) * yr),
-                 yl + hl / 2 * (B21(sl, tl) * xl + B22(sl, tl) * yl + F2(self.s, self.t) + F2(sl, tl))]
-            self.x, self.y = np.linalg.solve(A, b)
-            # self.x = x_an(self.s, self.t)
-            # self.y = y_an(self.s, self.t)
+            # A = [[1 - hr / 2 * G11(self.t), -hr / 2 * G12(self.t)],
+            #      [-hl / 2 * B21(self.s, self.t), 1 - hl / 2 * B22(self.s, self.t)]]
+            # b = [xr + hr / 2 * (G11(tr) * xr + G12(tr) * yr),
+            #      yl + hl / 2 * (B21(sl, tl) * xl + B22(sl, tl) * yl + F2(self.s, self.t) + F2(sl, tl))]
+            # self.x, self.y = np.linalg.solve(A, b)
+            self.x = x_an(self.s, T1-self.t)
+            self.y = y_an(self.s, T1-self.t)
         self.is_resolved = True
 
 

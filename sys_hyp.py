@@ -48,4 +48,7 @@ plt.subplots()
 plt.plot(s, y)
 plt.plot(rez["s"], rez["y(t1)"])
 
+print(f"max x:{np.max(abs(np.exp(rez['s'])*np.cos(t[1])-rez['x(t1)']))}")
+print(f"max y:{np.max(abs((rez['s']+2)*(np.sin(t[1]))-rez['y(t1)']))}")
+
 plt.show()

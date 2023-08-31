@@ -1,33 +1,30 @@
 import numpy as np
 from scipy.integrate import quad
-from sol import sol
+from conj_sol import sol
 import matplotlib.pyplot as plt
 
-def related_task(s_, c, fun0, B, F, G, m, Time_end, phi):
+def related_task(s_, c, fun0, B, F, G, D, m, Time_end):
     # Задача решается в обратном времени
-    B11_inv = lambda s, t: -B[0][0](s, Time_end - t)
-    B12_inv = lambda s, t: -B[1][0](s, Time_end - t)
-    B21_inv = lambda s, t: -B[0][1](s, Time_end - t)
-    B22_inv = lambda s, t: -B[1][1](s, Time_end - t)
+    B11_inv = lambda s, t: B[0][0](s, Time_end - t)
+    B12_inv = lambda s, t: B[0][1](s, Time_end - t)
+    B21_inv = lambda s, t: B[1][0](s, Time_end - t)
+    B22_inv = lambda s, t: B[1][1](s, Time_end - t)
 
-    G11_inv = lambda t: 0
-    G12_inv = lambda t: 0
-    G21_inv = lambda t: 0
-    G22_inv = lambda t: 0
+    G1_inv = lambda t: 1
+    G2_inv = lambda t: 1
 
+    D1_inv = lambda t: D[0](Time_end - t)
+    D2_inv = lambda t: D[1](Time_end - t)
     B_inv = [[B11_inv, B12_inv],
              [B21_inv, B22_inv]]
-    G_inv = [[G11_inv, G12_inv],
-             [G21_inv, G22_inv]]
+    G_inv = [G1_inv, G2_inv]
+    D_inv = [D1_inv, D2_inv]
     F_inv = [
         lambda s, t: F[0](s, Time_end - t),
         lambda s, t: F[1](s, Time_end - t)
     ]
-    phi_0 = [
-        lambda s: 0,
-        lambda s: 0
-    ]
-    rez = sol(s_, c, phi_0, B_inv, F_inv, G_inv, m, Time_end)
+    # sol(s, c, fun0, B, F, G, D, m, Time_end):
+    rez = sol(s=s_, c=c, fun0=fun0, B=B_inv, F=F_inv, G=G_inv, D=D_inv, m=m, Time_end=Time_end)
     rez["x(t1)"] = list(reversed(rez["x(t1)"]))
     rez["y(t1)"] = list(reversed(rez["y(t1)"]))
     return rez
@@ -36,7 +33,7 @@ t1 = 4
 t0 = 0
 s0 = 0
 s1 = 2
-m = 30
+m = 6
 
 c1 = 1
 c2 = 3
@@ -48,16 +45,26 @@ B2 = lambda s, t: -c2/(s+2)
 Fx = lambda s, t: - np.exp(s)*np.cos(t1-t)
 Fy = lambda s, t: (t1 - t)*np.cos(t1 - t) - (s+2)*np.cos(t1 - t)
 
-G = None # TODO Подставить G
-fun0 = None # TODO Подставить fun_0
+G1 = lambda t: 1
+G2 = lambda t: 1
+
+fun1 = lambda s: 0
+fun2 = lambda s: 0
+
+D1 = lambda t: -c2*(s1+2)*np.sin(t1-t)+np.cos(t1-t) * (c1*np.exp(s1)*(t1-t)-c2*(s1+2))
+D2 = lambda t: -c1*np.exp(s0)*np.cos(t1-t)*(1+t1-t)+np.sin(t1-t) * (c2*(s0+2)+c1*np.exp(s0)*(t1-t))
 
 s = [s0, s1]
 c = [c1, c2]
 B = [[A1, B1],
      [A2, B2]]
 F = [Fx, Fy]
+G = [G1, G2]
+D = [D1, D2]
+fun0 = [fun1, fun2]
+rez = related_task(s, c, fun0, B, F, G, D, m, t1)
 
-rez = related_task(s, c, fun0, B, F, G, m, t1, None)
+
 
 s = np.linspace(0, 2, 30)
 x = np.exp(s)*(t1-t0)*np.cos(t1-t0)
@@ -69,7 +76,7 @@ plt.subplots()
 plt.plot(s, y)
 plt.plot(rez["s"], rez["y(t1)"])
 plt.show()
-
+print(rez["p1(t)"])
 
 
 
