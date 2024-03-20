@@ -5,13 +5,13 @@ C1 = 1
 C2 = 2
 
 T0 = 0
-T1 = 0.4
+T1 = 0.1
 S0 = 0
 S1 = 1
 
 B11 = lambda s, t: -2*s
 B12 = lambda s, t: 4/3*s**2
-B21 = lambda s, t: - 3*s+1/(4*(s**2+1)*(s+1))
+B21 = lambda s, t: - (3*s+1)/(4*(s**2+1)*(s+1))
 B22 = lambda s, t: 4/((s+1)*(3*s+1))
 
 
