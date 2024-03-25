@@ -1,14 +1,17 @@
-from node_s import *
+from .nodes import *
+from .problem import HypProblem
+import numpy as np
+
 
 class Mesh:
-    def __init__(self):
-        self.c1 = C1
-        self.c2 = C2
-        self.t0 = T0
-        self.t1 = T1
-        self.s0 = S0
-        self.s1 = S1
-        self.m = COUNT_NODE
+    def __init__(self, problem: HypProblem, count_node:int):
+        self.c1 = problem.C1
+        self.c2 = problem.C2
+        self.t0 = problem.T0
+        self.t1 = problem.T1
+        self.s0 = problem.S0
+        self.s1 = problem.S1
+        self.m = count_node
         self.ds, self.h_down, self.h_up = self.create_mesh_s()
         self.start = MeshStart(self.ds, [self.h_down, self.h_up], self.m, self.s0, self.t0)
         inds = self.start.neighbor_is_left()
@@ -18,6 +21,7 @@ class Mesh:
         self.finish = MeshFinish([self.h_down, self.h_up], inds)
 
         self.result = None
+        self.create_mesh()
 
     def create_mesh_s(self):
         ds = (self.s1 - self.s0) / self.m
@@ -56,117 +60,23 @@ class Mesh:
 
         self.result = (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes)
 
-    def solve(self):
+    def solve(self, problem, solve_method):
         (start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes) = self.result
         # print("получение стартовых узлов")
         for node in start_nodes:  # начальные условия
-            node.solver()
+            node.solve(problem, solve_method)
         # print("получение оставшихся узлов")
 
         # print("решение узлов по уровням")
         for i, level_nodes in enumerate(center_nodes):
-            left_nodes[i].solver()
+            left_nodes[i].solve(problem, solve_method)
             for node in level_nodes:
-                node.solver()
-            right_nodes[i].solver()
+                node.solve(problem, solve_method)
+            right_nodes[i].solve(problem, solve_method)
 
         for level in finish_nodes:
             for node in level:
-                node.solver()
-
-
-    def plot_mesh(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
-
-        def plot_arrow_node(node: Node):
-            alpha = 0.8
-            width_arrow = 0.01
-            if node.left is not None:
-                s = node.s
-                t = node.t
-                ds = (node.left.s - node.s)*alpha
-                dt = (node.left.t - node.t)*alpha
-                plt.arrow(s, t, ds, dt, width=width_arrow)
-            if node.right is not None:
-                s = node.s
-                t = node.t
-                ds = (node.right.s - node.s)*alpha
-                dt = (node.right.t - node.t)*alpha
-                plt.arrow(s, t, ds, dt, width=width_arrow)
-
-        def plot_node(node: Node):
-            color = ("r" if node.right is None else "b") if node.left is None else ("orange" if node.right is None else "g")
-            plot_arrow_node(node)
-            plt.scatter(node.s, node.t, color=color)
-
-        for node in start_nodes:
-            plot_node(node)
-        for node in left_nodes:
-            plot_node(node)
-        for node in right_nodes:
-            plot_node(node)
-        for level in center_nodes:
-            for node in level:
-                plot_node(node)
-        for level in finish_nodes:
-            for node in level:
-                plot_node(node)
-
-        plt.xlim([self.s0, self.s1])
-        plt.ylim([self.t0, self.t1+0.5])
-        plt.show()
-
-    def plot_border_left(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
-        fig, axs = plt.subplots(nrows=2, ncols=1)
-        x = [node.x for node in left_nodes]
-        y = [node.y for node in left_nodes]
-        t = [node.t for node in left_nodes]
-        axs[0].plot(t, x, "*")
-
-        axs[0].plot(np.array(t), x_an(S0, np.array(t)))
-        axs[1].plot(t, y, "*")
-        axs[1].plot(np.array(t), y_an(S0, np.array(t)))
-
-        plt.show()
-
-    def plot_border_right(self):
-        start_nodes, left_nodes, right_nodes, center_nodes, finish_nodes = self.result
-        fig, axs = plt.subplots(nrows=2, ncols=1)
-        x = [node.x for node in right_nodes]
-        y = [node.y for node in right_nodes]
-        t = [node.t for node in right_nodes]
-        axs[0].plot(t, x, "*")
-
-        axs[0].plot(np.array(t), x_an(S1, np.array(t)))
-        axs[1].plot(t, y, "*")
-        axs[1].plot(np.array(t), y_an(S1, np.array(t)))
-
-        plt.show()
-
-    def plot_final(self):
-        s, x, y = self.get_XY_t1()
-        x_an_ = [x_an(si, T1) for si in s]
-        y_an_ = [y_an(si, T1) for si in s]
-
-        fig, axs = plt.subplots(nrows=2, ncols=1)
-        axs[0].set_title(f"Численное решение (узлов по s: {COUNT_NODE})")
-        axs[0].plot(s, x_an_)
-        axs[0].plot(s, x, "o")
-        axs[0].grid()
-        axs[0].legend(["аналитическое решение", "численное решение"])
-        axs[0].set_ylabel("$x(s, t_1)$")
-
-        axs[1].plot(s, y_an_)
-        axs[1].plot(s, y, "o")
-        axs[1].grid()
-        axs[1].legend(["аналитическое решение", "численное решение"])
-        axs[1].set_ylabel("$y(s, t_1)$")
-        axs[1].set_xlabel("$s$")
-
-        print(np.max(abs(np.array(x_an_)-np.array(x))))
-        print(np.max(abs(np.array(y_an_)-np.array(y))))
-        plt.show()
+                node.solve(problem, solve_method)
 
     def get_XY_t1(self):
         if self.result is None:
@@ -177,7 +87,7 @@ class Mesh:
 
             if t_d == t_u:
                 return f_u
-            return (f_d-f_u)*(T1-t_u)/(t_d-t_u) + f_u
+            return (f_d-f_u)*(self.t1-t_u)/(t_d-t_u) + f_u
 
         x_t1 = [approx(u.t, d.t, u.x, d.x) for u, d in zip(finish[0], finish[1])]
         y_t1 = [approx(u.t, d.t, u.y, d.y) for u, d in zip(finish[0], finish[1])]
