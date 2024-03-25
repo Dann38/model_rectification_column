@@ -53,12 +53,15 @@ class SolveMethod:
                 yl + hl / 2 * (B21(sl, tl) * xl + B22(sl, tl) * yl + F2(s, t) + F2(sl, tl))]
         return np.linalg.solve(A, b)
     
+
     def finish_solve(self, problem: HypProblem, s:float, t:float,
                    sl:float, tl:float, xl:float, yl:float, hl:float, 
                    sr:float, tr:float, xr:float, yr:float, hr:float) -> Tuple[float, float]:
         return self.start_solve(problem, s, t, sl, tl, xl, yl, hl, sr, tr, xr, yr, hr)
 
+
     def center_solve(self, problem: HypProblem, s:float, t:float,
                    sl:float, tl:float, xl:float, yl:float, hl:float, 
                    sr:float, tr:float, xr:float, yr:float, hr:float) -> Tuple[float, float]:
         return self.start_solve(problem, s, t, sl, tl, xl, yl, hl, sr, tr, xr, yr, hr)
+    

@@ -44,4 +44,24 @@ class HypProblem:
     def set_Y0(self, Y0):
         self.y0 = Y0
 
-    
+class ConjHypProblem(HypProblem):
+    def __init__(self, hyp_problem: HypProblem):
+        self.B11 = lambda s, t: -hyp_problem.B11(hyp_problem.S1-s, hyp_problem.T1-t)
+        self.B12 = lambda s, t: -hyp_problem.B12(hyp_problem.S1-s, hyp_problem.T1-t)
+        self.B21 = lambda s, t: -hyp_problem.B21(hyp_problem.S1-s, hyp_problem.T1-t)
+        self.B22 = lambda s, t: -hyp_problem.B22(hyp_problem.S1-s, hyp_problem.T1-t)
+
+        self.G11 = lambda t: -hyp_problem.G11(hyp_problem.T1-t)
+        self.G12 = lambda t: -hyp_problem.G12(hyp_problem.T1-t)
+        self.G21 = lambda t: -hyp_problem.G21(hyp_problem.T1-t)
+        self.G22 = lambda t: -hyp_problem.G22(hyp_problem.T1-t)
+
+        self.F1 = lambda s, t: -hyp_problem.F1(hyp_problem.S1-s, hyp_problem.T1-t)
+        self.F2 = lambda s, t: -hyp_problem.F2(hyp_problem.S1-s, hyp_problem.T1-t)
+
+        self.x0 = hyp_problem.x0
+        self.y0 = hyp_problem.y0
+
+        self.set_T([hyp_problem.T0,hyp_problem.T1])
+        self.set_S([hyp_problem.S0,hyp_problem.S1])
+        self.set_C([hyp_problem.C1,hyp_problem.C2])

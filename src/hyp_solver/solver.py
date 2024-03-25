@@ -11,3 +11,4 @@ class HypSolver:
     def solve(self, problem: HypProblem) -> dict:
         self.mesh.solve(problem, self.solve_method)
         return {}
+        

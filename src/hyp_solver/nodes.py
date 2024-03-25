@@ -50,7 +50,7 @@ class NodeStart(Node):
     def create_parents_node(self, problem: HypProblem, solve_method: SolveMethod):
         if self.left is None:
             self.left = NodeStart(problem.C2*(problem.T0-self.t)+self.s, problem.T0)
-            self.left.solve()
+            self.left.solve(problem, solve_method)
 
         if self.right is None:
             s =  problem.C1*(self.t - problem.T0)+self.s

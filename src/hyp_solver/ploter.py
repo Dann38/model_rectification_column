@@ -93,6 +93,9 @@ class Ploter:
         axs[1].set_ylabel("$y(s, t_1)$")
         axs[1].set_xlabel("$s$")
 
+        axs[0].set_ylim([-0.1, 2])
+        axs[1].set_ylim([-0.1, 2])
+
         print(np.max(abs(np.array(x_an_)-np.array(x))))
         print(np.max(abs(np.array(y_an_)-np.array(y))))
         plt.show()
