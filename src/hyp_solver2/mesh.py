@@ -1,0 +1,191 @@
+from .problem import HypProblem
+import numpy as np
+
+
+class Mesh:
+    def __init__(self, problem: HypProblem, m: int) -> None:
+        M = m*2
+        self.C1 = problem.C1
+        self.C2 = problem.C2
+        S0 = problem.S0
+        S1 = problem.S1
+        T0 = problem.T0
+        T1 = problem.T1
+
+        Sc = (S1+S0)/2
+        Tc = (T1+T0)/2
+
+        DeltaS = (S1-S0)/M
+        Delta1T = 1/self.C1*DeltaS 
+        Delta2T = 1/self.C2*DeltaS
+        DeltaT = Delta1T+Delta2T
+        self.dS = DeltaS
+        self.d1T = Delta1T
+        self.d2T = Delta2T
+        
+        self.__T_min_ij = (2*T0-(T1-T0))/(2*DeltaS)
+        self.__T_max_ij = (2*T1-(T1-T0))/(2*DeltaS)
+        self.__S_min_ij = (S0-Sc)/DeltaS
+        self.__S_max_ij = (S1-Sc)/DeltaS
+
+
+        min_j = int((self.__S_max_ij*self.C1+self.__T_max_ij)/(1/self.C1+1/self.C2))
+        min_i = int(self.__S_max_ij+min_j) 
+
+
+
+        self.__L = np.array([[DeltaS,   DeltaS], 
+                    [-Delta1T, Delta2T]])
+        self.__v = np.array([Sc, Tc])
+
+        Ind = np.array([[[i, j] for j in range(-min_j, min_j+1)] for i in range(-min_i, min_i+1)])
+
+        Ind_cord = np.array([[self.__L@vec+self.__v for vec in row] for row in Ind])
+
+        nodes_center = []
+        nodes_start_l = []
+        nodes_start_r = []
+        nodes_final_l = []
+        nodes_final_r = []
+
+        for row_cord, row_ind in zip(Ind_cord, Ind):
+            for vec, inds in zip(row_cord, row_ind) :
+                if self.is_from_center(inds[0], inds[1]):
+                    nodes_center.append([inds[0], inds[1], vec[0], vec[1]])
+                    if vec[0] == S0:
+                        if not self.is_from_center(inds[0]+1, inds[1]-1): 
+                            nodes_start_l.append([inds[0], inds[1], S0, T0])
+                        if not self.is_from_center(inds[0]+1, inds[1]):
+                            si = vec[0] + (vec[1]-T0)*self.C1
+                            nodes_start_r.append([inds[0], inds[1], si, T0])
+                        if not self.is_from_center(inds[0], inds[1]+1):
+                            si = vec[0] + (T1 - vec[1])*self.C2 
+                            nodes_final_r.append([inds[0], inds[1], si, T1])
+                        if not self.is_from_center(inds[0]-1, inds[1]+1):
+                            nodes_final_l.append([inds[0], inds[1], S0, T1])
+                    elif vec[0] == S1:
+                        if not self.is_from_center(inds[0], inds[1]-1):
+                            si = vec[0] - (vec[1]-T0)*self.C2 
+                            nodes_start_l.append([inds[0], inds[1], si, T0])
+                        if not self.is_from_center(inds[0]+1, inds[1]-1):
+                            nodes_start_r.append([inds[0], inds[1], S1, T0])
+                        if not self.is_from_center(inds[0]-1, inds[1]+1):
+                            nodes_final_r.append([inds[0], inds[1], S1, T1])
+                        if not self.is_from_center(inds[0]-1, inds[1]):
+                            si = vec[0] - (T1 - vec[1])*self.C1
+                            nodes_final_l.append([inds[0], inds[1], si, T1])
+                    else:
+                        if not self.is_from_center(inds[0], inds[1]-1):
+                            si = vec[0] - (vec[1]-T0)*self.C2 
+                            nodes_start_l.append([inds[0], inds[1], si, T0])
+                        if not self.is_from_center(inds[0]+1, inds[1]):
+                            si = vec[0] + (vec[1]-T0)*self.C1
+                            nodes_start_r.append([inds[0], inds[1], si, T0])
+                        if not self.is_from_center(inds[0], inds[1]+1):
+                            si = vec[0] + (T1 - vec[1])*self.C2 
+                            nodes_final_r.append([inds[0], inds[1], si, T1])
+                        if not self.is_from_center(inds[0]-1, inds[1]):
+                            si = vec[0] - (T1 - vec[1])*self.C1
+                            nodes_final_l.append([inds[0], inds[1], si, T1])
+
+
+        self.nodes_center = self.time_sort(nodes_center)
+        self.nodes_center_dict = self.get_dict(self.nodes_center)
+
+        self.nodes_start_l = self.time_sort(nodes_start_l)
+        self.nodes_start_l_dict = self.get_dict(self.nodes_start_l)
+
+        self.nodes_start_r = self.time_sort(nodes_start_r)
+        self.nodes_start_r_dict = self.get_dict(self.nodes_start_r)
+
+        self.nodes_final_l = self.time_sort(nodes_final_l)
+        self.nodes_final_l_dict = self.get_dict(self.nodes_final_l)
+
+        self.nodes_final_r = self.time_sort(nodes_final_r)
+        self.nodes_final_r_dict = self.get_dict(self.nodes_final_r)
+
+
+        self.rez_nodes_start_l = []
+        self.rez_nodes_start_r = []
+        self.rez_nodes_center = []
+        self.rez_nodes_final_l = []
+        self.rez_nodes_final_r = []
+
+    def time_sort(self, array):
+        ar = np.array(array)
+        indexs = [(self.__L @ a[:2]+self.__v)[1] for a in ar]
+        index = np.argsort(indexs)
+        return ar[index, :]
+
+    def get_dict(self, array):
+        nodes_dict = dict()
+        
+        for index, node in enumerate(array):
+            i = int(node[0])
+            j = int(node[1])
+            if i in nodes_dict.keys():
+                nodes_dict[i][j] = index
+            else:
+                nodes_dict[i] = {j: index}
+        return nodes_dict
+    
+    def get_from_center(self, i, j):
+        return self.nodes_center[self.nodes_center_dict[i][j]]
+
+    # def is_from_center(self, i, j):
+    #     return i in self.nodes_center_dict.keys() and j in self.nodes_center_dict[i].keys()
+    
+    def is_from_center(self, i, j):
+        t_ind = 1/self.C2*j-1/self.C1*i
+        s_ind = i+j
+        return (self.__T_min_ij <= t_ind) and (self.__T_max_ij >= t_ind) and \
+               (self.__S_min_ij <= s_ind) and (self.__S_max_ij >= s_ind)
+    
+    def get_center_node_left(self, i, j):
+        if self.is_from_center(i ,j-1):
+            node_l_index = self.nodes_center_dict[i][j-1]
+            node_l = self.nodes_center[node_l_index]
+            node_l_rez = self.rez_nodes_center[node_l_index]
+        else:
+            node_l_index = self.nodes_start_l_dict[i][j]
+            node_l = self.nodes_start_l[node_l_index]
+            node_l_rez = self.rez_nodes_start_l[node_l_index]
+
+        return node_l, node_l_rez
+    
+    def get_center_node_right(self, i, j):
+        if self.is_from_center(i+1 ,j):
+            node_r_index = self.nodes_center_dict[i+1][j]
+            node_r = self.nodes_center[node_r_index]
+            node_r_rez = self.rez_nodes_center[node_r_index]
+        else:
+            node_r_index = self.nodes_start_r_dict[i][j]
+            node_r = self.nodes_start_r[node_r_index]
+            node_r_rez = self.rez_nodes_start_r[node_r_index]
+
+        return node_r, node_r_rez
+    
+
+    def get_s0_node_left(self, i, j):
+        if self.is_from_center(i+1 ,j-1):
+            node_l_index = self.nodes_center_dict[i+1][j-1]
+            node_l = self.nodes_center[node_l_index]
+            node_l_rez = self.rez_nodes_center[node_l_index]
+        else:
+            node_l_index = self.nodes_start_l_dict[i][j]
+            node_l = self.nodes_start_l[node_l_index]
+            node_l_rez = self.rez_nodes_start_l[node_l_index]
+
+        return node_l, node_l_rez
+    
+    def get_s1_node_right(self, i, j):
+        if self.is_from_center(i+1 ,j-1):
+            node_r_index = self.nodes_center_dict[i+1][j-1]
+            node_r = self.nodes_center[node_r_index]
+            node_r_rez = self.rez_nodes_center[node_r_index]
+        else:
+            node_r_index = self.nodes_start_r_dict[i][j]
+            node_r = self.nodes_start_r[node_r_index]
+            node_r_rez = self.rez_nodes_start_r[node_r_index]
+
+        return node_r, node_r_rez
