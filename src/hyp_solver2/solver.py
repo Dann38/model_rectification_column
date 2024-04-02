@@ -67,109 +67,57 @@ class Solver:
         final_r_nodes = []
         final_l_nodes = []
         for node in mesh.nodes_final_r:
-            i = node[0]
-            j = node[1]
-            s = node[2]
-            t = node[3]
+            i, j = node[0], node[1]
+            s, t = node[2], node[3]
             
-            index_node_l = mesh.nodes_center_dict[i][j]
-            node_l = mesh.nodes_center[index_node_l]
-            node_l_rez = mesh.rez_nodes_center[index_node_l]
-            
-            index_node_r1 = mesh.nodes_center_dict[i+1][j] if s!= hyp_problem.S1 else mesh.nodes_center_dict[i+1][j-1]
-            node_r1 = mesh.nodes_center[index_node_r1]
-            node_r1_rez = mesh.rez_nodes_center[index_node_r1]
-            dt =t-node_l[3]
-            if mesh.is_from_center(i+1, j+1):
-                index_node_r2 = mesh.nodes_center_dict[i+1][j+1]
-                node_r2 = mesh.nodes_center[index_node_r2]
-                node_r2_rez = mesh.rez_nodes_center[index_node_r2]
-            elif s == hyp_problem.S1:                                  # ERROR
-                index_node_r2 = mesh.nodes_center_dict[i+2][j-2]
-                node_r2 = mesh.nodes_center[index_node_r2]
-                node_r2_rez = mesh.rez_nodes_center[index_node_r2]
-            else:
-                index_node_r2 = mesh.nodes_final_r_dict[i+1][j]
-                node_r2 = mesh.nodes_final_r[index_node_r2]
-                node_r2_rez = mesh.rez_nodes_final_r[index_node_r2]
-            alpha = dt/(node_r2[3]-node_r1[3])
-
-            sl, tl = node_l[2], node_l[3]
-            xl, yl = node_l_rez[0], node_l_rez[1]
-            hl = t-tl
-
-
-            sr = node_r1[2]+alpha*(node_r2[2]-node_r1[2])
-            if sr >= hyp_problem.S1:
-                tr = node_r1[3]+alpha*(node_r2[3]-node_r1[3]) 
-                xr = node_r1_rez[0]+alpha*(node_r2_rez[0]-node_r1_rez[0]) 
-                yr = node_r1_rez[1]+alpha*(node_r2_rez[1]-node_r1_rez[1])
-                sr = hyp_problem.S1
-                hr = t-tr
-                x, y = self.right_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
-            else:
-                tr = node_r1[3]+alpha*(node_r2[3]-node_r1[3])
-                xr = node_r1_rez[0]+alpha*(node_r2_rez[0]-node_r1_rez[0])
-                yr = node_r1_rez[1]+alpha*(node_r2_rez[1]-node_r1_rez[1])
-                hr = t-tr
-                x, y = self.center_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
+            if s == hyp_problem.S1:
+                sr, tr, xr, yr = mesh.get_center_node_stxy(i, j)
+                if mesh.is_from_center(i-1, j):
+                    s2, t2, x2, y2 = mesh.get_center_node_stxy(i-1, j)
+                    sl, tl, xl, yl = mesh.get_stxy_c_3node(sr, tr, xr, yr, s2, t2, x2, y2, s, t, hyp_problem.C2)
+                    x, y = self.right_solve(hyp_problem, s=s, t=t,
+                                sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
+                else:
+                    final_r_nodes.append([i, j, sr, tr, xr, yr])
+                    x = None; y=None
+                mesh.rez_nodes_final_r.append([x, y])
+                continue
+            sl, tl, xl, yl = mesh.get_center_node_stxy(i, j)
+            s1, t1, x1, y1 = mesh.get_center_node_stxy(i+1, j)
+            s2, t2, x2, y2 =mesh.get_center_node_stxy(i+1, j+1) if mesh.is_from_center(i+1, j+1) else mesh.get_right_node_stxy(i+1, j)
+            sr, tr, xr, yr = mesh.get_stxy_c_3node(s1, t1, x1, y1, s2, t2, x2, y2,s, t, -hyp_problem.C1)
+            x, y = self.center_solve(hyp_problem, s=s, t=t,
+                                sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             
             mesh.rez_nodes_final_r.append([x, y]) 
 
         for node in mesh.nodes_final_l:
-            i = node[0]
-            j = node[1]
-            s = node[2]
-            t = node[3]
+            i, j = node[0], node[1]
+            s, t = node[2], node[3]
             
-            index_node_r = mesh.nodes_center_dict[i][j]
-            node_r = mesh.nodes_center[index_node_r]
-            node_r_rez = mesh.rez_nodes_center[index_node_r]
-            
-            index_node_l1 = mesh.nodes_center_dict[i][j-1] if s!=hyp_problem.S0 else  mesh.nodes_center_dict[i+1][j-1]
-            node_l1 = mesh.nodes_center[index_node_l1]
-            node_l1_rez = mesh.rez_nodes_center[index_node_l1]
-            dt =t-node_r[3]
-            if mesh.is_from_center(i-1, j-1):
-                index_node_l2 = mesh.nodes_center_dict[i-1][j-1]
-                node_l2 = mesh.nodes_center[index_node_l2]
-                node_l2_rez = mesh.rez_nodes_center[index_node_l2]
-            elif s==hyp_problem.S0:                                  # ERROR
-                index_node_l2 = mesh.nodes_center_dict[i+2][j-2] 
-                node_l2 = mesh.nodes_center[index_node_l2]
-                node_l2_rez = mesh.rez_nodes_center[index_node_l2]
-            else:
-                index_node_l2 = mesh.nodes_final_l_dict[i][j-1]
-                node_l2 = mesh.nodes_final_l[index_node_l2]
-                node_l2_rez = mesh.rez_nodes_final_l[index_node_l2]
-            alpha = dt/(node_l2[3]-node_l1[3])
-
-            sr, tr = node_r[2], node_r[3]
-            xr, yr = node_r_rez[0], node_r_rez[1]
-            hr = t-tr
-
-            sl = node_l1[2]+alpha*(node_l2[2]-node_l1[2])
-            if sl <= hyp_problem.S0:
-                tl = node_l1[3]+alpha*(node_l2[3]-node_l1[3])
-                xl = node_l1_rez[0]+alpha*(node_l2_rez[0]-node_l1_rez[0])
-                yl = node_l1_rez[1]+alpha*(node_l2_rez[1]-node_l1_rez[1])
-                hl = t-tl
-                x, y = self.left_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
-            else:
-                tl = node_l1[3]+alpha*(node_l2[3]-node_l1[3])
-                xl = node_l1_rez[0]+alpha*(node_l2_rez[0]-node_l1_rez[0])
-                yl = node_l1_rez[1]+alpha*(node_l2_rez[1]-node_l1_rez[1])
-                hl = t-tl
-                x, y = self.center_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
-           
+            if s == hyp_problem.S0:
+                sl, tl, xl, yl = mesh.get_center_node_stxy(i, j)
+                if mesh.is_from_center(i, j+1):
+                    s2, t2, x2, y2 = mesh.get_center_node_stxy(i, j+1)
+                    sr, tr, xr, yr = mesh.get_stxy_c_3node(sl, tl, xl, yl, s2, t2, x2, y2, s, t, -hyp_problem.C1)
+                    x, y = self.left_solve(hyp_problem, s=s, t=t,
+                                sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
+                else:
+                    final_l_nodes.append([i, j, sl, tl, xl, yl])
+                    x = None; y=None
+                mesh.rez_nodes_final_r.append([x, y])
+                continue
+            sr, tr, xr, yr = mesh.get_center_node_stxy(i, j)
+            s1, t1, x1, y1 = mesh.get_center_node_stxy(i, j-1)
+            s2, t2, x2, y2 =mesh.get_center_node_stxy(i-1, j-1) if mesh.is_from_center(i-1, j-1) else mesh.get_left_node_stxy(i, j-1)
+            sl, tl, xl, yl = mesh.get_stxy_c_3node(s1, t1, x1, y1, s2, t2, x2, y2, s, t, hyp_problem.C2)
+            x, y = self.center_solve(hyp_problem, s=s, t=t,
+                                sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
+             
             mesh.rez_nodes_final_l.append([x, y]) 
         
 
