@@ -11,7 +11,7 @@ y0 = lambda s: (3*s+1)/(2*(s+1))
 
 x_an = lambda s, t: 2*(s**2+1)*np.sin(t)
 y_an = lambda s, t: (3*s+1)/(2*(s+1))*np.cos(t)
-T = [0, 0.45]
+T = [0, 0.4]
 S = [0, 1]
 C = [1, 2]
 
@@ -31,15 +31,15 @@ F2 = lambda s, t: 0
 
 hyp_problem = HypProblem(T=T, S=S, C=C, B=[[B11, B12], [B21, B22]], F=[F1, F2], G=[[G11, G12], [G21, G22]], X0=x0, Y0=y0)
 
-mesh = Mesh(hyp_problem, count_node=10)
+mesh = Mesh(hyp_problem, count_node=29)
 method = SolveMethod()
 solver = HypSolver(mesh, method)
 
 solver.solve(hyp_problem)
 
 ploter = Ploter()
-ploter.plot_mesh(mesh)
-# ploter.plot_final(mesh, x_an, y_an)
+# ploter.plot_mesh(mesh)
+ploter.plot_final(mesh, x_an, y_an)
 # for level in mesh.result[3]:
 #     for i, node in enumerate(level):
 #         print(i, "\t", node)

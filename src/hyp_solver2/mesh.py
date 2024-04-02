@@ -81,8 +81,6 @@ class Mesh:
                     else:
                         if not self.is_from_center(inds[0], inds[1]-1):
                             si = vec[0] - (vec[1]-T0)*self.C2 
-                            if si < S0:
-                                print(vec[0])
                             nodes_start_l.append([inds[0], inds[1], si, T0])
                         if not self.is_from_center(inds[0]+1, inds[1]):
                             si = vec[0] + (vec[1]-T0)*self.C1
@@ -163,7 +161,7 @@ class Mesh:
     def get_left_node(self, i, j):
         node_l_index = self.nodes_final_l_dict[i][j]
         node_l = self.nodes_final_l[node_l_index]
-        node_l_rez = self.nodes_final_l[node_l_index]
+        node_l_rez = self.rez_nodes_final_l[node_l_index]
         return node_l, node_l_rez
 
     def get_left_node_stxy(self, i, j):
@@ -173,10 +171,10 @@ class Mesh:
         return s, t, x, y
 
     def get_right_node(self, i, j):
-        node_l_index = self.nodes_final_r_dict[i][j]
-        node_l = self.nodes_final_l[node_l_index]
-        node_l_rez = self.nodes_final_l[node_l_index]
-        return node_l, node_l_rez
+        node_r_index = self.nodes_final_r_dict[i][j]
+        node_r = self.nodes_final_r[node_r_index]
+        node_r_rez = self.rez_nodes_final_r[node_r_index]
+        return node_r, node_r_rez
     
     def get_right_node_stxy(self, i, j):
         node, node_rez = self.get_right_node(i, j)
