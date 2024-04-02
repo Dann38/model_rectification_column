@@ -110,11 +110,11 @@ class Mesh:
         self.nodes_final_r_dict = self.get_dict(self.nodes_final_r)
 
 
-        self.rez_nodes_start_l = [[[None, None], [None, None]] for i in self.nodes_start_l]
-        self.rez_nodes_start_r =  [[[None, None], [None, None]] for i in self.nodes_start_r]
-        self.rez_nodes_center =  [[[None, None], [None, None]] for i in self.nodes_center]
-        self.rez_nodes_final_l =  [[[None, None], [None, None]] for i in self.nodes_final_l]
-        self.rez_nodes_final_r =  [[[None, None], [None, None]] for i in self.nodes_final_r]
+        self.rez_nodes_start_l = [[[None, None], [None, None, None]] for i in self.nodes_start_l]
+        self.rez_nodes_start_r =  [[[None, None], [None, None, None]] for i in self.nodes_start_r]
+        self.rez_nodes_center =  [[[None, None], [None, None, None]] for i in self.nodes_center]
+        self.rez_nodes_final_l =  [[[None, None], [None, None, None]] for i in self.nodes_final_l]
+        self.rez_nodes_final_r =  [[[None, None], [None, None, None]] for i in self.nodes_final_r]
 
     def time_sort(self, array):
         ar = np.array(array)
@@ -275,3 +275,51 @@ class Mesh:
         y = y1 + alpha*(y2-y1)
 
         return s, t, x, y
+    
+
+    # PSI =============================================================
+    def get_center_conj_node_stxy(self, i, j):
+        node, node_rez = self.get_center_node(i, j)
+        s, t = node[2], node[3]
+        psi1, psi2, p = node_rez[1][0], node_rez[1][1], node_rez[1][2]
+        return s, t, psi1, psi2, p
+
+    def get_final_l_conj_node_stxy(self, i, j):
+        node_l_index = self.nodes_final_l_dict[i][j]
+        node = self.nodes_final_l[node_l_index]
+        node_rez = self.rez_nodes_final_l[node_l_index]
+        s, t = node[2], node[3]
+        psi1, psi2, p1 = node_rez[1][0], node_rez[1][1], node_rez[1][2]
+        return s, t, psi1, psi2, p1
+
+    def get_final_r_conj_node_stxy(self, i, j):
+        node_r_index = self.nodes_final_r_dict[i][j]
+        node = self.nodes_final_r[node_r_index]
+        node_rez = self.rez_nodes_final_r[node_r_index]
+        s, t = node[2], node[3]
+        psi1, psi2, p2 = node_rez[1][0], node_rez[1][1], node_rez[1][2]
+        return s, t, psi1, psi2, p2
+
+    def get_center_node_conj_left_stxy(self, i, j):
+        if self.is_from_center(i-1 ,j):
+            return self.get_center_conj_node_stxy(i-1 ,j)
+        else:
+            return self.get_final_l_conj_node_stxy(i, j)
+
+    def get_center_node_conj_right_stxy(self, i, j):
+        if self.is_from_center(i ,j+1):
+            return self.get_center_conj_node_stxy(i ,j+1)
+        else:
+            return self.get_final_r_conj_node_stxy(i, j)
+    
+    def get_s0_node_conj_left_stxy(self, i, j):
+        if self.is_from_center(i-1 ,j+1):
+            return self.get_center_conj_node_stxy(i-1 ,j+1)
+        else:
+            return self.get_final_l_conj_node_stxy(i, j)
+
+    def get_s1_node_conj_right_stxy(self, i, j):
+        if self.is_from_center(i-1 ,j+1):
+            return self.get_center_conj_node_stxy(i-1 ,j+1)
+        else:
+            return self.get_final_r_conj_node_stxy(i, j)

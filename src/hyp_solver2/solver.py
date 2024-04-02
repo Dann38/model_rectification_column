@@ -4,7 +4,7 @@ import numpy as np
 from .mesh import Mesh
 
 class Solver:
-    def solve_initial(self, mesh: Mesh, problem):
+    def solve_initial(self, mesh: Mesh, problem: HypProblem):
         for node in mesh.nodes_start_l:
             i, j, s, t = node[0], node[1], node[2], node[3]
             node_index = mesh.nodes_start_l_dict[i][j]
@@ -17,6 +17,27 @@ class Solver:
             mesh.rez_nodes_start_r[node_index][0][0]=problem.x0(s) 
             mesh.rez_nodes_start_r[node_index][0][1]=problem.y0(s)
 
+
+    def solver_initial_conj(self, mesh: Mesh, problem: HypProblem):
+        for node in mesh.nodes_final_r:
+            i, j, s, t = node[0], node[1], node[2], node[3]
+            node_index = mesh.nodes_final_r_dict[i][j]
+            mesh.rez_nodes_final_r[node_index][1][0]=0 
+            mesh.rez_nodes_final_r[node_index][1][1]=0
+            if s==problem.S0:
+                mesh.rez_nodes_final_r[node_index][1][2]=0
+            elif s==problem.S1:
+                mesh.rez_nodes_final_r[node_index][1][2]=0
+
+        for node in mesh.nodes_final_l:
+            i, j, s, t = node[0], node[1], node[2], node[3]
+            node_index = mesh.nodes_final_l_dict[i][j]
+            mesh.rez_nodes_final_l[node_index][1][0]=0 
+            mesh.rez_nodes_final_l[node_index][1][1]=0
+            if s==problem.S0:
+                mesh.rez_nodes_final_l[node_index][1][2]=0
+            elif s==problem.S1:
+                mesh.rez_nodes_final_l[node_index][1][2]=0
 
     def solver_center(self, mesh: Mesh, hyp_problem):
         for node in mesh.nodes_center:
@@ -47,7 +68,42 @@ class Solver:
             
             node_index = mesh.nodes_center_dict[i][j]
             mesh.rez_nodes_center[node_index][0][0]=x
-            mesh.rez_nodes_center[node_index][0][1]=y      
+            mesh.rez_nodes_center[node_index][0][1]=y  
+
+    def solver_center_conj(self, mesh: Mesh, hyp_problem):
+        psi1_an = lambda s, t: np.exp(s)*(4-t)*np.cos(4-t)
+        psi2_an = lambda s, t: (s+2)*np.sin(4-t)
+        for node in reversed(mesh.nodes_center):
+            
+            i, j, s, t = node[0], node[1], node[2], node[3]
+            print(i, j,s, t)
+            if s==hyp_problem.S0:
+                sl, tl, psi1l, psi2l, p2 = mesh.get_s0_node_conj_left_stxy(i, j)
+                sr, tr, psi1, psi2, _ = mesh.get_center_node_conj_right_stxy(i, j) 
+            elif s==hyp_problem.S1:
+                sl, tl, psi1, psi2, _ = mesh.get_center_node_conj_left_stxy(i, j)
+                sr, tr, psi1l, psi2l, p1 = mesh.get_s1_node_conj_right_stxy(i, j)
+            else:
+                sl, tl, psi1l, psi2l, _  = mesh.get_center_node_conj_left_stxy(i, j)
+                sr, tr, psi1r, psi2r, _  = mesh.get_center_node_conj_right_stxy(i, j)   
+            
+            node_index = mesh.nodes_center_dict[i][j]
+            if s == hyp_problem.S0:
+                psi1, psi2, p2 = psi1_an(s, t), psi2_an(s, t), psi1_an(s, t)
+
+                mesh.rez_nodes_center[node_index][1][2]=p2
+            elif s == hyp_problem.S1:
+                psi1, psi2, p1 = psi1_an(s, t), psi2_an(s, t), psi2_an(s, t)
+
+                mesh.rez_nodes_center[node_index][1][2]=p1
+            else:
+                psi1, psi2 = self.center_conj_solve(hyp_problem, s=s, t=t,
+                                    sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, hl=t-tl, 
+                                    sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
+            
+            
+            mesh.rez_nodes_center[node_index][1][0]=psi1
+            mesh.rez_nodes_center[node_index][1][1]=psi2   
              
 
     def solver_final(self, mesh: Mesh, hyp_problem):
@@ -133,6 +189,18 @@ class Solver:
              yl + hl/2*(B21(sl, tl)*xl+B22(sl, tl)*yl + F2(s, t) + F2(sl, tl))]
         return np.linalg.solve(A, b)
     
+    def center_conj_solve(self, problem: HypProblem, s:float, t:float,
+                    sl:float, tl:float, psi1l:float, psi2l:float, hl:float, 
+                    sr:float, tr:float, psi1r:float, psi2r:float, hr:float) -> Tuple[float, float]:
+
+        B11, B12, B21, B22 = problem.B11, problem.B12, problem.B21, problem.B22,
+        F1, F2 = problem.F1, problem.F2
+        
+        A = [[1 - hr/2*B11(s, t), -hr/2*B12(s, t)],
+             [-hl/2*B21(s, t), 1-hl/2*B22(s, t)]]
+        b = [xr + hr/2*(B11(sr, tr)*xr+B12(sr, tr)*yr + F1(s, t) + F1(sr, tr)),
+             yl + hl/2*(B21(sl, tl)*xl+B22(sl, tl)*yl + F2(s, t) + F2(sl, tl))]
+        return np.linalg.solve(A, b)
 
     def left_solve(self, problem: HypProblem, s:float, t:float,
                    sl:float, tl:float, xl:float, yl:float, hl:float, 
