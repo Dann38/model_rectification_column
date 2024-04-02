@@ -6,69 +6,54 @@ from .mesh import Mesh
 class Solver:
     def solve_initial(self, mesh: Mesh, problem):
         for node in mesh.nodes_start_l:
-            s = node[2]
-            t = node[3]
-            mesh.rez_nodes_start_l.append([problem.x0(s), problem.y0(s), 0, 0])
+            i, j, s, t = node[0], node[1], node[2], node[3]
+            node_index = mesh.nodes_start_l_dict[i][j]
+            mesh.rez_nodes_start_l[node_index][0][0]=problem.x0(s) 
+            mesh.rez_nodes_start_l[node_index][0][1]=problem.y0(s)
             
         for node in mesh.nodes_start_r:
-            s = node[2]
-            t = node[3]
-            mesh.rez_nodes_start_r.append([problem.x0(s), problem.y0(s), 0, 0])
+            i, j, s, t = node[0], node[1], node[2], node[3]
+            node_index = mesh.nodes_start_r_dict[i][j]
+            mesh.rez_nodes_start_r[node_index][0][0]=problem.x0(s) 
+            mesh.rez_nodes_start_r[node_index][0][1]=problem.y0(s)
 
 
     def solver_center(self, mesh: Mesh, hyp_problem):
         for node in mesh.nodes_center:
-            i = int(node[0])
-            j = int(node[1])
-            s = node[2]
-            t = node[3]      
-            # print(f"FACT:{s:.4f}, {t:.4f}", end="")     
-            if s==hyp_problem.S0:
-                node_l, node_l_rez = mesh.get_s0_node_left(i, j)
-                node_r, node_r_rez = mesh.get_center_node_right(i, j) 
-            elif s==hyp_problem.S1:
-                node_l, node_l_rez = mesh.get_center_node_left(i, j)
-                node_r, node_r_rez = mesh.get_s1_node_right(i, j)
-            else:
-                node_l, node_l_rez = mesh.get_center_node_left(i, j)
-                node_r, node_r_rez = mesh.get_center_node_right(i, j)   
+            i, j, s, t = node[0], node[1], node[2], node[3]
 
-            sl, tl = node_l[2], node_l[3]
-            sr, tr = node_r[2], node_r[3]
-            xl, yl = node_l_rez[0], node_l_rez[1]
-            # xl, yl = x_an(sl, tl), y_an(sl, tl)
-            xr, yr = node_r_rez[0], node_r_rez[1]
-            # xr, yr = x_an(sr, tr), y_an(sr, tr)
-            hl = t-tl
-            hr = t-tr
-            # print(f"{s:.4f}, {t:.4f}| {sl:.4f}, {tl:.4f}, {xl:.4f}, {yl:.4f}, {hl:.4f}| {sr:.4f}, {tr:.4f}, {xr:.4f}, {yr:.4f}, {hr:.4f}")
-            # print(f"TRUE:{s:.4f}, {t:.4f}| {x_an(s, t):.4f}, {y_an(s, t):.4f}")
-            
+            if s==hyp_problem.S0:
+                sl, tl, xl, yl = mesh.get_s0_node_left_stxy(i, j)
+                sr, tr, xr, yr = mesh.get_center_node_right_stxy(i, j) 
+            elif s==hyp_problem.S1:
+                sl, tl, xl, yl = mesh.get_center_node_left_stxy(i, j)
+                sr, tr, xr, yr = mesh.get_s1_node_right_stxy(i, j)
+            else:
+                sl, tl, xl, yl = mesh.get_center_node_left_stxy(i, j)
+                sr, tr, xr, yr = mesh.get_center_node_right_stxy(i, j)   
             
             if s == hyp_problem.S0:
                 x, y = self.left_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
+                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             elif s == hyp_problem.S1:
                 x, y = self.right_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
+                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             else:
                 x, y = self.center_solve(hyp_problem, s=s, t=t,
-                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=hl, 
-                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=hr)
-                
-            # print(f"| {x:.4f}, {y:.4f}")
+                                    sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
+                                    sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             
-            mesh.rez_nodes_center.append([x, y])       
+            node_index = mesh.nodes_center_dict[i][j]
+            mesh.rez_nodes_center[node_index][0][0]=x
+            mesh.rez_nodes_center[node_index][0][1]=y      
              
 
     def solver_final(self, mesh: Mesh, hyp_problem):
         final_r_nodes = []
-        # final_l_nodes = []
         for node in mesh.nodes_final_r:
-            i, j = node[0], node[1]
-            s, t = node[2], node[3]
+            i, j, s, t = node[0], node[1], node[2], node[3]
             
             if s == hyp_problem.S1:
                 sr, tr, xr, yr = mesh.get_center_node_stxy(i, j)
@@ -78,10 +63,11 @@ class Solver:
                     x, y = self.right_solve(hyp_problem, s=s, t=t,
                                 sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
                                 sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
+                    node_index = mesh.nodes_final_r_dict[i][j]
+                    mesh.rez_nodes_final_r[node_index][0][0]=x
+                    mesh.rez_nodes_final_r[node_index][0][1]=y 
                 else:
                     final_r_nodes.append([i, j, sr, tr, xr, yr])
-                    x = None; y=None
-                mesh.rez_nodes_final_r.append([x, y])
                 continue
             sl, tl, xl, yl = mesh.get_center_node_stxy(i, j)
             s1, t1, x1, y1 = mesh.get_center_node_stxy(i+1, j)
@@ -91,24 +77,23 @@ class Solver:
                                 sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
                                 sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             
-            mesh.rez_nodes_final_r.append([x, y]) 
+            node_index = mesh.nodes_final_r_dict[i][j]
+            mesh.rez_nodes_final_r[node_index][0][0]=x
+            mesh.rez_nodes_final_r[node_index][0][1]=y 
 
         for node in mesh.nodes_final_l:
-            i, j = node[0], node[1]
-            s, t = node[2], node[3]
+            i, j, s, t = node[0], node[1], node[2], node[3]
             
             if s == hyp_problem.S0:
                 sl, tl, xl, yl = mesh.get_center_node_stxy(i, j)
-                # if mesh.is_from_center(i, j+1):
                 s2, t2, x2, y2 = mesh.get_center_node_stxy(i, j+1) if mesh.is_from_center(i, j+1) else mesh.get_right_node_stxy(i, j)
                 sr, tr, xr, yr = mesh.get_stxy_c_3node(sl, tl, xl, yl, s2, t2, x2, y2, s, t, -hyp_problem.C1)
                 x, y = self.left_solve(hyp_problem, s=s, t=t,
                                 sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
                                 sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
-                # else:
-                #     final_l_nodes.append([i, j, sl, tl, xl, yl])
-                #     x = None; y=None
-                mesh.rez_nodes_final_l.append([x, y])
+                node_index = mesh.nodes_final_l_dict[i][j]
+                mesh.rez_nodes_final_l[node_index][0][0]=x
+                mesh.rez_nodes_final_l[node_index][0][1]=y 
                 continue
             sr, tr, xr, yr = mesh.get_center_node_stxy(i, j)
             s1, t1, x1, y1 = mesh.get_center_node_stxy(i, j-1)
@@ -119,7 +104,9 @@ class Solver:
                                 sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
                                 sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
             
-            mesh.rez_nodes_final_l.append([x, y]) 
+            node_index = mesh.nodes_final_l_dict[i][j]
+            mesh.rez_nodes_final_l[node_index][0][0]=x
+            mesh.rez_nodes_final_l[node_index][0][1]=y  
         
         for i, j, sr, tr, xr, yr in final_r_nodes:
             s, t, _, _ = mesh.get_right_node_stxy(i, j)
@@ -128,7 +115,9 @@ class Solver:
             x, y = self.right_solve(hyp_problem, s=s, t=t,
                         sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
                                 sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
-            mesh.rez_nodes_final_r[mesh.nodes_final_r_dict[i][j]] = [x, y]
+            node_index = mesh.nodes_final_r_dict[i][j]
+            mesh.rez_nodes_final_r[node_index][0][0]=x
+            mesh.rez_nodes_final_r[node_index][0][1]=y 
 
 
     def center_solve(self, problem: HypProblem, s:float, t:float,

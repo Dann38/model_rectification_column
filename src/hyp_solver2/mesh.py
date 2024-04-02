@@ -110,11 +110,11 @@ class Mesh:
         self.nodes_final_r_dict = self.get_dict(self.nodes_final_r)
 
 
-        self.rez_nodes_start_l = []
-        self.rez_nodes_start_r = []
-        self.rez_nodes_center = []
-        self.rez_nodes_final_l = []
-        self.rez_nodes_final_r = []
+        self.rez_nodes_start_l = [[[None, None], [None, None]] for i in self.nodes_start_l]
+        self.rez_nodes_start_r =  [[[None, None], [None, None]] for i in self.nodes_start_r]
+        self.rez_nodes_center =  [[[None, None], [None, None]] for i in self.nodes_center]
+        self.rez_nodes_final_l =  [[[None, None], [None, None]] for i in self.nodes_final_l]
+        self.rez_nodes_final_r =  [[[None, None], [None, None]] for i in self.nodes_final_r]
 
     def time_sort(self, array):
         ar = np.array(array)
@@ -155,7 +155,7 @@ class Mesh:
     def get_center_node_stxy(self, i, j):
         node, node_rez = self.get_center_node(i, j)
         s, t = node[2], node[3]
-        x, y = node_rez[0], node_rez[1]
+        x, y = node_rez[0][0], node_rez[0][1]
         return s, t, x, y
 
     def get_left_node(self, i, j):
@@ -167,7 +167,7 @@ class Mesh:
     def get_left_node_stxy(self, i, j):
         node, node_rez = self.get_left_node(i, j)
         s, t = node[2], node[3]
-        x, y = node_rez[0], node_rez[1]
+        x, y = node_rez[0][0], node_rez[0][1]
         return s, t, x, y
 
     def get_right_node(self, i, j):
@@ -179,7 +179,7 @@ class Mesh:
     def get_right_node_stxy(self, i, j):
         node, node_rez = self.get_right_node(i, j)
         s, t = node[2], node[3]
-        x, y = node_rez[0], node_rez[1]
+        x, y = node_rez[0][0], node_rez[0][1]
         return s, t, x, y
 
     def get_center_node_left(self, i, j):
@@ -194,6 +194,13 @@ class Mesh:
 
         return node_l, node_l_rez
     
+    def get_center_node_left_stxy(self, i, j):
+        node, node_rez = self.get_center_node_left( i, j)
+        s, t = node[2], node[3]
+        x, y = node_rez[0][0], node_rez[0][1]
+        return s, t, x, y
+
+
     def get_center_node_right(self, i, j):
         if self.is_from_center(i+1 ,j):
             node_r_index = self.nodes_center_dict[i+1][j]
@@ -206,6 +213,11 @@ class Mesh:
 
         return node_r, node_r_rez
     
+    def get_center_node_right_stxy(self, i, j):
+        node, node_rez = self.get_center_node_right( i, j)
+        s, t = node[2], node[3]
+        x, y = node_rez[0][0], node_rez[0][1]
+        return s, t, x, y
 
     def get_s0_node_left(self, i, j):
         if self.is_from_center(i+1 ,j-1):
@@ -219,6 +231,12 @@ class Mesh:
 
         return node_l, node_l_rez
     
+    def get_s0_node_left_stxy(self, i, j):
+        node, node_rez = self.get_s0_node_left( i, j)
+        s, t = node[2], node[3]
+        x, y = node_rez[0][0], node_rez[0][1]
+        return s, t, x, y
+    
     def get_s1_node_right(self, i, j):
         if self.is_from_center(i+1 ,j-1):
             node_r_index = self.nodes_center_dict[i+1][j-1]
@@ -231,6 +249,12 @@ class Mesh:
 
         return node_r, node_r_rez
     
+    def get_s1_node_right_stxy(self, i, j):
+        node, node_rez = self.get_s1_node_right( i, j)
+        s, t = node[2], node[3]
+        x, y = node_rez[0][0], node_rez[0][1]
+        return s, t, x, y
+
     def get_stxy_c_3node(self, s1:float, t1:float, x1:float, y1:float, 
                                s2:float, t2:float, x2:float, y2:float, 
                                s3:float, t3:float, c:float) -> Tuple[float, float, float, float]:
