@@ -323,3 +323,19 @@ class Mesh:
             return self.get_center_conj_node_stxy(i-1 ,j+1)
         else:
             return self.get_final_r_conj_node_stxy(i, j)
+        
+    def get_right_conj_node_stxy(self, i, j):
+        node_r_index = self.nodes_start_r_dict[i][j]
+        node = self.nodes_start_r[node_r_index]
+        node_rez = self.rez_nodes_start_r[node_r_index]
+        s, t = node[2], node[3]
+        psi1, psi2, p = node_rez[1][0], node_rez[1][1], node_rez[1][2]
+        return s, t, psi1, psi2, p
+
+    def get_left_conj_node_stxy(self, i, j):
+        node_l_index = self.nodes_start_l_dict[i][j]
+        node = self.nodes_start_r[node_l_index]
+        node_rez = self.rez_nodes_start_r[node_l_index]
+        s, t = node[2], node[3]
+        psi1, psi2, p = node_rez[1][0], node_rez[1][1], node_rez[1][2]
+        return s, t, psi1, psi2, p
