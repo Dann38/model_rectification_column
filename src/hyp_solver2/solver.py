@@ -78,29 +78,33 @@ class Solver:
             i, j, s, t = node[0], node[1], node[2], node[3]
             print(i, j,s, t)
             if s==hyp_problem.S0:
-                sl, tl, psi1l, psi2l, p2 = mesh.get_s0_node_conj_left_stxy(i, j)
-                sr, tr, psi1, psi2, _ = mesh.get_center_node_conj_right_stxy(i, j) 
+                sl, tl, psi1l, psi2l, p2l = mesh.get_s0_node_conj_left_stxy(i, j)
+                sr, tr, psi1r, psi2r, _ = mesh.get_center_node_conj_right_stxy(i, j) 
             elif s==hyp_problem.S1:
-                sl, tl, psi1, psi2, _ = mesh.get_center_node_conj_left_stxy(i, j)
-                sr, tr, psi1l, psi2l, p1 = mesh.get_s1_node_conj_right_stxy(i, j)
+                sl, tl, psi1l, psi2l, _ = mesh.get_center_node_conj_left_stxy(i, j)
+                sr, tr, psi1r, psi2r, p1r = mesh.get_s1_node_conj_right_stxy(i, j)
             else:
                 sl, tl, psi1l, psi2l, _  = mesh.get_center_node_conj_left_stxy(i, j)
                 sr, tr, psi1r, psi2r, _  = mesh.get_center_node_conj_right_stxy(i, j)   
             
             node_index = mesh.nodes_center_dict[i][j]
             if s == hyp_problem.S0:
-                psi1, psi2, p2 = psi1_an(s, t), psi2_an(s, t), psi1_an(s, t)
-
+                psi1, psi2, p2 = self.left_conj_solve(hyp_problem, s=s, t=t,
+                                    sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, p2l=p2l, hl=t-tl, 
+                                    sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
+                # psi1, psi2, p2 =  psi1_an(s, t), psi2_an(s, t), 0
                 mesh.rez_nodes_center[node_index][1][2]=p2
             elif s == hyp_problem.S1:
-                psi1, psi2, p1 = psi1_an(s, t), psi2_an(s, t), psi2_an(s, t)
+                psi1, psi2, p1 = self.right_conj_solve(hyp_problem, s=s, t=t,
+                                    sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, hl=t-tl, 
+                                    sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, p1r=p1r, hr=t-tr)
 
                 mesh.rez_nodes_center[node_index][1][2]=p1
             else:
                 psi1, psi2 = self.center_conj_solve(hyp_problem, s=s, t=t,
                                     sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, hl=t-tl, 
                                     sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
-            
+                # psi1, psi2 =  psi1_an(s, t), psi2_an(s, t)
             
             mesh.rez_nodes_center[node_index][1][0]=psi1
             mesh.rez_nodes_center[node_index][1][1]=psi2   
@@ -196,10 +200,10 @@ class Solver:
         B11, B12, B21, B22 = problem.B11, problem.B12, problem.B21, problem.B22,
         F1, F2 = problem.F1, problem.F2
         
-        A = [[1 - hr/2*B11(s, t), -hr/2*B12(s, t)],
-             [-hl/2*B21(s, t), 1-hl/2*B22(s, t)]]
-        b = [xr + hr/2*(B11(sr, tr)*xr+B12(sr, tr)*yr + F1(s, t) + F1(sr, tr)),
-             yl + hl/2*(B21(sl, tl)*xl+B22(sl, tl)*yl + F2(s, t) + F2(sl, tl))]
+        A = [[1 + hl/2*B11(s, t), hl/2*B21(s, t)],
+             [hr/2*B12(s, t), 1+hr/2*B22(s, t)]]
+        b = [psi1l + hl/2*(-B11(sl, tl)*psi1l-B21(sl, tl)*psi2l + F1(s, t) + F1(sl, tl)),
+             psi2r + hr/2*(-B12(sr, tr)*psi1r-B22(sr, tr)*psi2r + F2(s, t) + F2(sr, tr))]
         return np.linalg.solve(A, b)
 
     def left_solve(self, problem: HypProblem, s:float, t:float,
@@ -218,6 +222,27 @@ class Solver:
                 yl + hl / 2 * (G21(tl) * xl + G22(tl) * yl)]
         return np.linalg.solve(A, b)
     
+    def left_conj_solve(self, problem: HypProblem, s:float, t:float,
+                    sl:float, tl:float, psi1l:float, psi2l:float, p2l: float,hl:float, 
+                    sr:float, tr:float, psi1r:float, psi2r:float, hr:float) -> Tuple[float, float]:
+        
+        B22 = problem.B22
+        B12 = problem.B12
+        F2 = problem.F2
+        Phi2 = problem.Phi2
+        G22 = problem.G22
+        C2 = problem.C2
+        psi_to_P = 1/problem.C1*G22(t)
+
+        A = [[1 - hl/2*G22(t), hl/2*C2],
+             [hr/2*B12(s, t)*psi_to_P, 1+hr/2*B22(s, t)]]
+        b = [p2l +   hl/2*(G22(tl)*p2l-C2*psi2l + Phi2(t)  + Phi2(tl)),
+             psi2r + hr/2*(-B12(sr, tr)*psi1r-B22(sr, tr)*psi2r + F2(s, t) + F2(sr, tr))]
+        p2, psi2 = np.linalg.solve(A, b)
+        psi1 = psi_to_P*p2
+        
+        return psi1, psi2, p2
+    
     
     def right_solve(self, problem: HypProblem, s:float, t:float,
                    sl:float, tl:float, xl:float, yl:float, hl:float, 
@@ -234,3 +259,25 @@ class Solver:
         b = [xr + hr / 2 * (G11(tr) * xr + G12(tr) * yr),
                 yl + hl / 2 * (B21(sl, tl) * xl + B22(sl, tl) * yl + F2(s, t) + F2(sl, tl))]
         return np.linalg.solve(A, b)
+    
+    def right_conj_solve(self, problem: HypProblem, s:float, t:float,
+                    sl:float, tl:float, psi1l:float, psi2l:float, hl:float, 
+                    sr:float, tr:float, psi1r:float, psi2r:float, p1r: float, hr:float) -> Tuple[float, float]:
+        
+        B11 = problem.B11
+        B21 = problem.B21
+        F1 = problem.F1
+        Phi1 = problem.Phi1
+        G11 = problem.G11
+        C1 = problem.C1
+        psi_to_P = 1/problem.C2*G11(t)
+
+        A = [[1 + hl/2*B11(s, t), hl/2*B21(s, t)*psi_to_P],
+             [hr/2*C1, 1-hr/2*G11(t)]]
+        b = [psi1l + hl/2*(-B11(sl, tl)*psi1l-B21(sl, tl)*psi2l + F1(s, t) + F1(sl, tl)),
+             p1r+hr/2*(G11(tr)*p1r-C1*psi1r+ Phi1(t)+Phi1(tr))]
+        psi1, p1 = np.linalg.solve(A, b)
+        psi2 = psi_to_P*p1
+        
+        return psi1, psi2, p1
+    
