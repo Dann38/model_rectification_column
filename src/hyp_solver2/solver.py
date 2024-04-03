@@ -180,29 +180,29 @@ class Solver:
         start_l_nodes = []
         for node in reversed(mesh.nodes_start_l):
             i, j, s, t = node[0], node[1], node[2], node[3]
-            psi1_an = lambda s, t: np.exp(s)*(4-t)*np.cos(4-t)
-            psi2_an = lambda s, t: (s+2)*np.sin(4-t)
-            psi1 = psi1_an(s, t)
-            psi2 = psi2_an(s, t)
-            # if s == hyp_problem.S0:
-            #     sl, tl, xl, yl = mesh.get_center_node_stxy(i, j)
-            #     s2, t2, x2, y2 = mesh.get_center_node_stxy(i, j+1) if mesh.is_from_center(i, j+1) else mesh.get_right_node_stxy(i, j)
-            #     sr, tr, xr, yr = mesh.get_stxy_c_3node(sl, tl, xl, yl, s2, t2, x2, y2, s, t, -hyp_problem.C1)
-            #     x, y = self.left_solve(hyp_problem, s=s, t=t,
-            #                     sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
-            #                     sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
-            #     node_index = mesh.nodes_final_l_dict[i][j]
-            #     mesh.rez_nodes_final_l[node_index][0][0]=x
-            #     mesh.rez_nodes_final_l[node_index][0][1]=y 
-            #     continue
-            # sr, tr, xr, yr = mesh.get_center_node_stxy(i, j)
-            # s1, t1, x1, y1 = mesh.get_center_node_stxy(i, j-1)
-            # s2, t2, x2, y2 =mesh.get_center_node_stxy(i-1, j-1) if mesh.is_from_center(i-1, j-1) else mesh.get_left_node_stxy(i, j-1)
-            # sl, tl, xl, yl = mesh.get_stxy_c_3node(s1, t1, x1, y1, s2, t2, x2, y2, s, t, hyp_problem.C2)
             
-            # x, y = self.center_solve(hyp_problem, s=s, t=t,
-            #                     sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
-            #                     sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
+            if s == hyp_problem.S0:
+                sl, tl, psi1l, psi2l, p2l = mesh.get_center_conj_node_stxy(i, j)
+                if mesh.is_from_center(i+1, j):
+                    s2, t2, psi12, psi22, _ = mesh.get_center_node_stxy(i+1, j)
+                    sr, tr, psi1r, psi2r = mesh.get_stxy_c_3node(s2, t2, psi12, psi22, sl, tl, psi1l, psi2l,  s, t, hyp_problem.C2)
+                    psi1, psi2, p2 = self.left_conj_solve(hyp_problem, s=s, t=t,
+                                    sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, p2l=p2l, hl=t-tl, 
+                                    sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
+                    node_index = mesh.nodes_start_l_dict[i][j]
+                    mesh.rez_nodes_start_l[node_index][1][0]=psi1
+                    mesh.rez_nodes_start_l[node_index][1][1]=psi2
+                else:  
+                    start_l_nodes.append([i, j, s, t, sl, tl, psi1l, psi2l, p2l])
+                continue
+            sr, tr, psi1r, psi2r, _ = mesh.get_center_conj_node_stxy(i, j)
+            s1, t1, psi11, psi21, _ = mesh.get_center_conj_node_stxy(i-1, j)
+            s2, t2, psi12, psi22, _ =mesh.get_center_conj_node_stxy(i-1, j-1) if mesh.is_from_center(i-1, j-1) else mesh.get_left_conj_node_stxy(i-1, j)
+            sl, tl, psi1l, psi2l, = mesh.get_stxy_c_3node(s2, t2, psi12, psi22,s1, t1, psi11, psi21, s, t, -hyp_problem.C1)
+            
+            psi1, psi2 = self.center_conj_solve(hyp_problem, s=s, t=t,
+                                    sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, hl=t-tl, 
+                                    sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
             
             node_index = mesh.nodes_start_l_dict[i][j]
             mesh.rez_nodes_start_l[node_index][1][0]=psi1
@@ -238,16 +238,15 @@ class Solver:
 
         
         
-        # for i, j, sr, tr, xr, yr in start_l_nodes:
-        #     s, t, _, _ = mesh.get_right_node_stxy(i, j)
-        #     s2, t2, x2, y2 = mesh.get_left_node_stxy(i, j)
-        #     sl, tl, xl, yl = mesh.get_stxy_c_3node(sr, tr, xr, yr, s2, t2, x2, y2, s, t, hyp_problem.C2)
-        #     x, y = self.right_solve(hyp_problem, s=s, t=t,
-        #                 sl=sl, tl=tl, xl=xl, yl=yl, hl=t-tl, 
-        #                         sr=sr, tr=tr, xr=xr, yr=yr, hr=t-tr)
-        #     node_index = mesh.nodes_final_r_dict[i][j]
-        #     mesh.rez_nodes_final_r[node_index][0][0]=x
-        #     mesh.rez_nodes_final_r[node_index][0][1]=y 
+        for i, j, s, t, sl, tl, psi1l, psi2l, p2l in start_l_nodes:
+            s2, t2, psi12, psi22, _ = mesh.get_right_conj_node_stxy(i, j)
+            sr, tr, psi1r, psi2r = mesh.get_stxy_c_3node(s2, t2, psi12, psi22, sl, tl, psi1l, psi2l,  s, t, hyp_problem.C2)
+            psi1, psi2, p2 = self.left_conj_solve(hyp_problem, s=s, t=t,
+                            sl=sl, tl=tl, psi1l=psi1l, psi2l=psi2l, p2l=p2l, hl=t-tl, 
+                            sr=sr, tr=tr, psi1r=psi1r, psi2r=psi2r, hr=t-tr)
+            node_index = mesh.nodes_start_l_dict[i][j]
+            mesh.rez_nodes_start_l[node_index][1][0]=psi1
+            mesh.rez_nodes_start_l[node_index][1][1]=psi2
 
 
     def center_solve(self, problem: HypProblem, s:float, t:float,
