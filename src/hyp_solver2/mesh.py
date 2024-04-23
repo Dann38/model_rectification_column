@@ -14,6 +14,11 @@ class Mesh:
         T0 = problem.T0
         T1 = problem.T1
 
+        self.S0 = problem.S0
+        self.S1 = problem.S1
+        self.T0 = problem.T0
+        self.T1 = problem.T1
+
         Sc = (S1+S0)/2
         Tc = (T1+T0)/2
 
@@ -339,3 +344,54 @@ class Mesh:
         s, t = node[2], node[3]
         psi1, psi2, p = node_rez[1][0], node_rez[1][1], node_rez[1][2]
         return s, t, psi1, psi2, p
+        
+
+    def get_border(self, type_border='start', sort_t=False, sort_s=False):
+        """
+        0.0-i
+        0.1-j
+        0.2-s
+        0.3-t
+        
+        0.0-x
+        0.1-y
+        1.0-psi1
+        1.1-psi2
+        1.2-p1|p2
+        """
+        
+        nodes = []
+
+        if type_border in ('left', 'right'): 
+            type_ = self.S0 if type_border == "left" else self.S1
+            t_h = []
+            for r, n in zip(self.rez_nodes_start_l+self.rez_nodes_start_r+\
+                        self.rez_nodes_center+\
+                        self.rez_nodes_final_l+self.rez_nodes_final_r, 
+                        self.nodes_start_l.tolist() + self.nodes_start_r.tolist() +\
+                        self.nodes_center.tolist() + \
+                        self.nodes_final_l.tolist()+self.nodes_final_r.tolist()):
+                if n[2] == type_:
+                    t_h.append(n[3])
+                    nodes.append((n, r))
+                    
+        elif type_border == "final":
+            for n, r in zip(self.nodes_final_l.tolist()+self.nodes_final_r.tolist(), 
+                         self.rez_nodes_final_l+self.rez_nodes_final_r):
+                nodes.append((n, r))
+        elif type_border == "start":
+            for n, r in zip(self.nodes_start_l.tolist()+self.nodes_start_r.tolist(), 
+                         self.rez_nodes_start_l+self.rez_nodes_start_r):
+                nodes.append((n, r))
+
+        if sort_s:
+            s_ = [node[0][2] for node in nodes]
+            indexs = np.argsort(s_)
+            nodes = [nodes[i] for i in indexs]
+        
+        if sort_t:
+            t_ = [node[0][3] for node in nodes]
+            indexs = np.argsort(t_)
+            nodes = [nodes[i] for i in indexs]
+
+        return nodes

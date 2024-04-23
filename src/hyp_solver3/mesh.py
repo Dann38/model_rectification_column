@@ -9,15 +9,15 @@ class Mesh:
         M = m*2
         self.C1 = problem.C1
         self.C2 = problem.C2
-        S0 = problem.S0
-        S1 = problem.S1
-        T0 = problem.T0
-        T1 = problem.T1
+        self.S0 = problem.S0
+        self.S1 = problem.S1
+        self.T0 = problem.T0
+        self.T1 = problem.T1
+        
+        Sc = (self.S1+self.S0)/2
+        Tc = (self.T1+self.T0)/2
 
-        Sc = (S1+S0)/2
-        Tc = (T1+T0)/2
-
-        DeltaS = (S1-S0)/M
+        DeltaS = (self.S1-self.S0)/M
         Delta1T = 1/self.C1*DeltaS 
         Delta2T = 1/self.C2*DeltaS
         DeltaT = Delta1T+Delta2T
@@ -25,10 +25,10 @@ class Mesh:
         self.d1T = Delta1T
         self.d2T = Delta2T
         
-        self.__T_min_ij = (2*T0-(T1-T0))/(2*DeltaS)
-        self.__T_max_ij = (2*T1-(T1-T0))/(2*DeltaS)
-        self.__S_min_ij = (S0-Sc)/DeltaS
-        self.__S_max_ij = (S1-Sc)/DeltaS
+        self.__T_min_ij = (2*self.T0-(self.T1-self.T0))/(2*DeltaS)
+        self.__T_max_ij = (2*self.T1-(self.T1-self.T0))/(2*DeltaS)
+        self.__S_min_ij = (self.S0-Sc)/DeltaS
+        self.__S_max_ij = (self.S1-Sc)/DeltaS
 
 
         min_j = int((self.__S_max_ij*self.C1+self.__T_max_ij)/(1/self.C1+1/self.C2))
@@ -54,44 +54,44 @@ class Mesh:
             for vec, inds in zip(row_cord, row_ind) :
                 if self.is_from_center(inds[0], inds[1]):
                     nodes_center.append([inds[0], inds[1], vec[0], vec[1]])
-                    if vec[0] == S0:
+                    if vec[0] == self.S0:
                         if not self.is_from_center(inds[0]+1, inds[1]-1): 
-                            nodes_start_l.append([inds[0], inds[1], S0, T0])
+                            nodes_start_l.append([inds[0], inds[1], self.S0, self.T0])
                         if not self.is_from_center(inds[0]+1, inds[1]):
-                            si = vec[0] + (vec[1]-T0)*self.C1
-                            nodes_start_r.append([inds[0], inds[1], si, T0])
+                            si = vec[0] + (vec[1]-self.T0)*self.C1
+                            nodes_start_r.append([inds[0], inds[1], si, self.T0])
 
                         if not self.is_from_center(inds[0], inds[1]+1):
-                            si = vec[0] + (T1 - vec[1])*self.C2 
-                            nodes_final_r.append([inds[0], inds[1], si, T1])
+                            si = vec[0] + (self.T1 - vec[1])*self.C2 
+                            nodes_final_r.append([inds[0], inds[1], si, self.T1])
                         if not self.is_from_center(inds[0]-1, inds[1]+1):
-                            nodes_final_l.append([inds[0], inds[1], S0, T1])
-                    elif vec[0] == S1:
+                            nodes_final_l.append([inds[0], inds[1], self.S0, self.T1])
+                    elif vec[0] == self.S1:
                         if not self.is_from_center(inds[0], inds[1]-1):
-                            si = vec[0] - (vec[1]-T0)*self.C2 
-                            nodes_start_l.append([inds[0], inds[1], si, T0])
+                            si = vec[0] - (vec[1]-self.T0)*self.C2 
+                            nodes_start_l.append([inds[0], inds[1], si, self.T0])
                         if not self.is_from_center(inds[0]+1, inds[1]-1):
-                            nodes_start_r.append([inds[0], inds[1], S1, T0])
+                            nodes_start_r.append([inds[0], inds[1], self.S1, self.T0])
 
                         if not self.is_from_center(inds[0]-1, inds[1]+1):
-                            nodes_final_r.append([inds[0], inds[1], S1, T1])
+                            nodes_final_r.append([inds[0], inds[1], self.S1, self.T1])
                         if not self.is_from_center(inds[0]-1, inds[1]):
-                            si = vec[0] - (T1 - vec[1])*self.C1
-                            nodes_final_l.append([inds[0], inds[1], si, T1])
+                            si = vec[0] - (self.T1 - vec[1])*self.C1
+                            nodes_final_l.append([inds[0], inds[1], si, self.T1])
                     else:
                         if not self.is_from_center(inds[0], inds[1]-1):
-                            si = vec[0] - (vec[1]-T0)*self.C2 
-                            nodes_start_l.append([inds[0], inds[1], si, T0])
+                            si = vec[0] - (vec[1]-self.T0)*self.C2 
+                            nodes_start_l.append([inds[0], inds[1], si, self.T0])
                         if not self.is_from_center(inds[0]+1, inds[1]):
-                            si = vec[0] + (vec[1]-T0)*self.C1
-                            nodes_start_r.append([inds[0], inds[1], si, T0])
+                            si = vec[0] + (vec[1]-self.T0)*self.C1
+                            nodes_start_r.append([inds[0], inds[1], si, self.T0])
 
                         if not self.is_from_center(inds[0], inds[1]+1):
-                            si = vec[0] + (T1 - vec[1])*self.C2 
-                            nodes_final_r.append([inds[0], inds[1], si, T1])
+                            si = vec[0] + (self.T1 - vec[1])*self.C2 
+                            nodes_final_r.append([inds[0], inds[1], si, self.T1])
                         if not self.is_from_center(inds[0]-1, inds[1]):
-                            si = vec[0] - (T1 - vec[1])*self.C1
-                            nodes_final_l.append([inds[0], inds[1], si, T1])
+                            si = vec[0] - (self.T1 - vec[1])*self.C1
+                            nodes_final_l.append([inds[0], inds[1], si, self.T1])
 
 
         self.nodes_center = self.time_sort(nodes_center)
@@ -339,3 +339,54 @@ class Mesh:
         s, t = node[2], node[3]
         psi1, psi2, p = node_rez[1][0], node_rez[1][1], node_rez[1][2]
         return s, t, psi1, psi2, p
+    
+
+    def get_border(self, type_border='start', sort_t=False, sort_s=False):
+        """
+        0.0-i
+        0.1-j
+        0.2-s
+        0.3-t
+        
+        0.0-x
+        0.1-y
+        1.0-psi1
+        1.1-psi2
+        1.2-p1|p2
+        """
+        
+        nodes = []
+
+        if type_border in ('left', 'right'): 
+            type_ = self.S0 if type_border == "left" else self.S1
+            t_h = []
+            for r, n in zip(self.rez_nodes_start_l+self.rez_nodes_start_r+\
+                        self.rez_nodes_center+\
+                        self.rez_nodes_final_l+self.rez_nodes_final_r, 
+                        self.nodes_start_l.tolist() + self.nodes_start_r.tolist() +\
+                        self.nodes_center.tolist() + \
+                        self.nodes_final_l.tolist()+self.nodes_final_r.tolist()):
+                if n[2] == type_:
+                    t_h.append(n[3])
+                    nodes.append((n, r))
+                    
+        elif type_border == "final":
+            for n, r in zip(self.nodes_final_l.tolist()+self.nodes_final_r.tolist(), 
+                         self.rez_nodes_final_l+self.rez_nodes_final_r):
+                nodes.append((n, r))
+        elif type_border == "start":
+            for n, r in zip(self.nodes_start_l.tolist()+self.nodes_start_r.tolist(), 
+                         self.rez_nodes_start_l+self.rez_nodes_start_r):
+                nodes.append((n, r))
+
+        if sort_s:
+            s_ = [node[0][2] for node in nodes]
+            indexs = np.argsort(s_)
+            nodes = [nodes[i] for i in indexs]
+        
+        if sort_t:
+            t_ = [node[0][3] for node in nodes]
+            indexs = np.argsort(t_)
+            nodes = [nodes[i] for i in indexs]
+
+        return nodes

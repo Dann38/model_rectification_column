@@ -10,7 +10,7 @@ PACKAGE_DIR = {"": "src"}
 PACKAGES = setuptools.find_packages(where="src")
 setuptools.setup(
     name="hyp_solver",
-    version="0.0.1",
+    version="0.0.2",
     author="Dunn Kopylov",
     author_email="38dunn@gmail.com",
     description="hyp solver",

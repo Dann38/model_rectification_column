@@ -25,8 +25,8 @@ class Solver:
             x = mesh.rez_nodes_final_r[node_index][0][0]
             y = mesh.rez_nodes_final_r[node_index][0][1]
 
-            mesh.rez_nodes_final_r[node_index][1][0]=-problem.phi_dx(x, y, s)
-            mesh.rez_nodes_final_r[node_index][1][1]=-problem.phi_dy(x, y, s)
+            mesh.rez_nodes_final_r[node_index][1][0]=-problem.phi_dx(s, x, y)
+            mesh.rez_nodes_final_r[node_index][1][1]=-problem.phi_dy(s, x, y)
             if s==problem.S0:
                 mesh.rez_nodes_final_r[node_index][1][2]=0
             elif s==problem.S1:
@@ -39,8 +39,8 @@ class Solver:
             y = mesh.rez_nodes_final_l[node_index][0][1]
 
 
-            mesh.rez_nodes_final_l[node_index][1][0]=-problem.phi_dx(x, y, s) 
-            mesh.rez_nodes_final_l[node_index][1][1]=-problem.phi_dy(x, y, s)
+            mesh.rez_nodes_final_l[node_index][1][0]=-problem.phi_dx(s, x, y) 
+            mesh.rez_nodes_final_l[node_index][1][1]=-problem.phi_dy(s, x, y)
             if s==problem.S0:
                 mesh.rez_nodes_final_l[node_index][1][2]=0
             elif s==problem.S1:
@@ -200,6 +200,7 @@ class Solver:
                     mesh.rez_nodes_start_l[node_index][1][0]=psi1
                     mesh.rez_nodes_start_l[node_index][1][1]=psi2
                     mesh.rez_nodes_start_l[node_index][1][2]=p2
+                    left_p=p2
                 else:  
                     start_l_nodes.append([i, j, s, t, sl, tl, psi1l, psi2l, p2l])
                 continue
@@ -231,6 +232,7 @@ class Solver:
                 mesh.rez_nodes_start_r[node_index][1][0]=psi1
                 mesh.rez_nodes_start_r[node_index][1][1]=psi2
                 mesh.rez_nodes_start_r[node_index][1][2]=p1
+                right_p = p1
                 continue
             sl, tl, psi1l, psi2l, _ = mesh.get_center_conj_node_stxy(i, j)
             s1, t1, psi11, psi21, _ = mesh.get_center_conj_node_stxy(i, j+1)
@@ -255,8 +257,23 @@ class Solver:
             mesh.rez_nodes_start_l[node_index][1][0]=psi1
             mesh.rez_nodes_start_l[node_index][1][1]=psi2
             mesh.rez_nodes_start_l[node_index][1][2]=p2
+            left_p=p2
 
+        for node in mesh.nodes_start_l.tolist() :
+            node_index = mesh.nodes_start_l_dict[node[0]][ node[1]] 
+            if node[2] == mesh.S0:
+                mesh.rez_nodes_start_l[node_index][1][2] = left_p
+            if node[2] == mesh.S1:
+                mesh.rez_nodes_start_l[node_index][1][2] = right_p
 
+        for node in mesh.nodes_start_r.tolist() :
+            node_index = mesh.nodes_start_r_dict[node[0]][ node[1]] 
+            if node[2] == mesh.S0:
+                mesh.rez_nodes_start_r[node_index][1][2] = left_p
+            if node[2] == mesh.S1:
+                mesh.rez_nodes_start_r[node_index][1][2] = right_p
+
+        
     def center_solve(self, problem: HypProblem, s:float, t:float,
                     sl:float, tl:float, xl:float, yl:float, hl:float, 
                     sr:float, tr:float, xr:float, yr:float, hr:float) -> Tuple[float, float]:
