@@ -9,4 +9,29 @@ hyp_solver2
 hyp_solver3
 третий вариант программы, направлен на решения задачи оптимального управления, здесь изменяется расчетные формулы для решения сопряженной задачи исходя из постановки задачи (обратная задача отличается от обратной задачи из учебника). Проверить корректность решателя не представляется возможным.
 
-Здесь же добавился OC_solver
+Здесь же добавился solve_oc.
+
+# Запуск программы 
+### windows
+```terminal
+python -m venv env
+env\bin\activate.bat
+```
+
+### linux
+```terminal
+python3 -m venv env
+source env/bin/activate
+```
+
+Далее одинаково
+```terminal
+python -m pip install .
+cd experiments
+python -m notebook
+```
+
+В папке находится 2 notebooks. 
+демонстрация работы методов 
+math-program method - метод на основе математического программирования
+Conditional Grafient Method -  метода условного градиента
