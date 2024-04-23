@@ -33,5 +33,5 @@ python -m notebook
 
 В папке находится 2 notebooks. 
 демонстрация работы методов 
-math-program method - метод на основе математического программирования
-Conditional Grafient Method -  метода условного градиента
+- math-program method - метод на основе математического программирования
+- Conditional Grafient Method -  метода условного градиента
