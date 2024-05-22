@@ -6,7 +6,7 @@ from .mesh import Mesh
 from .solver import Solver
 from typing import List, Callable
 
-MAX_STEP_ALPHA = 100
+MAX_STEP_ALPHA = 20
 MAX_ITERATION = 20
 
 class OCProblem:
@@ -174,7 +174,7 @@ def impm_solver(oc_problem, debug, **params):
                 print( f"Решено на {k}-й итерации")
             break
         T = _get_interval_T(over_W, Theta_uk, beta=params["beta"], delta=params["delta"])
-        a = _alpha_eps_test(oc_problem, uk, over_uk, T) 
+        a = _alpha_eps_test(oc_problem, uk, over_uk, T, params["eps_count_max"]) 
         uk_a_min = _get_uki_variation(uk, over_uk, T, a)
         oc_problem.set_new_control(lambda ti: np.interp(x=ti, xp=t, fp=uk_a_min))
         if debug:
@@ -272,23 +272,39 @@ def _alpha_test(oc_problem:OCProblem, uk, uk_new, const=10):
         if ALPHA_HYSTORY > max_a:
             return a
         
-def _alpha_eps_test(oc_problem:OCProblem, uk, uk_new, T):
+def _alpha_eps_test(oc_problem:OCProblem, uk, uk_new, T, eps_count_max, const=10):
     global ALPHA_HYSTORY
-   
-    eps = np.linspace(0, 1, max([Ti[2]-Ti[1] for Ti in T]))[1:]
-    a = [1/(1+i+ALPHA_HYSTORY) for i in range(MAX_STEP_ALPHA)]
-    
-    eps_and_a = [(e, ai) for e in reversed(eps) for ai in a]
+    # n = int(len(oc_problem.mesh.get_border(type_border="left", sort_t=False))/len(T))
+    # n = len(oc_problem.mesh.get_border(type_border="left", sort_t=False))
+    # eps = np.linspace(0, 1, n if n < eps_count_max else eps_count_max)[1:] if n > 0 else [1]
+    eps = np.array([const/(const+i) for i in range(0, eps_count_max+1)])
+    a = [const/(const+i+ALPHA_HYSTORY) for i in range(1, MAX_STEP_ALPHA+1)]
+
     J_min = np.inf
     start = False
-    for i, param in enumerate(eps_and_a):
-        uk_a = _get_uki_variation(uk, uk_new, T, param)
-        J = oc_problem.J(uk_a)
+
+    uk_a = [_get_uki_variation(uk, uk_new, T, [e, a[0]]) for e in eps]
+   
+    J_ar = [oc_problem.J(uk_ai) for uk_ai in uk_a]
+    i = np.argmin(J_ar)
+    J_min = J_ar[i]
+    a_min = a[0]
+    eps_min = eps[i]
+
+    for arg_a in a:
+        J_ar = []
+        for arg_eps in eps:  
+            uk_a = _get_uki_variation(uk, uk_new, T, [arg_eps, arg_a])
+            J_ar.append(oc_problem.J(uk_a))
+        i = np.argmin(J_ar)
+        J= J_ar[i]
         if J < J_min:
             J_min = J
+            a_min = arg_a
+            eps_min = eps[i]
             start = True
         elif start:
             break
-    ALPHA_HYSTORY = int(1/eps_and_a[i][1]-1)
-    return eps_and_a[i]
+    ALPHA_HYSTORY = int(const/a_min-const)
+    return (eps_min, arg_a)
 
