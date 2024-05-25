@@ -14,7 +14,8 @@ class OCProblem:
         self.hyp_problem = hyp_problem
         self.mesh = mesh
         self.solver = Solver()
-
+        self.iteration_solv = 0
+        self.iteration_conj_solv = 0
         self.rezid = []
 
         self.xs = xs
@@ -35,11 +36,13 @@ class OCProblem:
                 self.t_index.append(i)
 
     def solve(self):
+        self.iteration_solv += 1
         self.solver.solve_initial(self.mesh, self.hyp_problem)
         self.solver.solver_center(self.mesh, self.hyp_problem)
         self.solver.solver_final(self.mesh, self.hyp_problem)
 
     def solve_conj(self):
+        self.iteration_conj_solv += 1
         self.solver.solver_initial_conj(self.mesh, self.hyp_problem)
         self.solver.solver_center_conj(self.mesh, self.hyp_problem)
         self.solver.solver_final_conj(self.mesh, self.hyp_problem) 
@@ -92,14 +95,14 @@ def solve_oc(hyp_problem: HypProblem, mesh: Mesh,
     oc_problem.set_min_delta(eps)
     oc_problem.set_new_control(U0)
     if method.upper() == "CGM":
-        return cgm_solver(oc_problem, debug)
+        return cgm_solver(oc_problem, debug, **params)
     elif method.upper() == "IMPM":
         return impm_solver(oc_problem, debug, **params)
     elif method.upper() == "MPM":
         return mpm_solver(oc_problem, debug, **params)
     
 
-def cgm_solver(oc_problem, debug):
+def cgm_solver(oc_problem, debug, **params):
     global ALPHA_HYSTORY
     ALPHA_HYSTORY = 0
     
@@ -145,10 +148,11 @@ def mpm_solver(oc_problem, debug, **params):
     nodes = oc_problem.mesh.get_border(type_border="left", sort_t=True)
     t_mesh = [node[0][3] for node in nodes]
     U0 = [oc_problem.hyp_problem.G22(ti) for ti in t_mesh]
-    rez = scipy.optimize.minimize(oc_problem.J, U0)
+    rez = scipy.optimize.minimize(oc_problem.J, U0, tol=oc_problem.min_delta)
     oc_problem.set_new_control( lambda t: np.interp(t, t_mesh, rez.x))
     oc_problem.solve()
-    print(rez)
+    if debug:
+        print(rez)
     return oc_problem
 
 
